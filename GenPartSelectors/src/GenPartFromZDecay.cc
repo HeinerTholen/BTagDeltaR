@@ -86,12 +86,17 @@ GenPartFromZDecay::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
     iEvent.getByLabel(src_, gens);
 
     for (vector<reco::GenParticle>::const_iterator i = gens->begin(); i != gens->end(); ++i){
-        if (!i->numberOfMothers()) {
-            hasZMomMap_[&(*i)] = false;
-        } else if (i->mother()->pdgId() == 23 && i->mother()->status() == 3) {
+        if (i->numberOfMothers() && i->mother()->pdgId() == 23) {
             hasZMomMap_[&(*i)] = true;
         } else {
-            hasZMomMap_[&(*i)] = hasZMomMap_[(const reco::GenParticle*) &(*i->mother())];
+            bool has_hot_mom = false;
+            for (unsigned j=0; j<i->numberOfMothers(); ++j) {
+                if (hasZMomMap_[(const reco::GenParticle*) &(*i->mother(j))]) {
+                    has_hot_mom = true;
+                    break;
+                }
+            }
+            hasZMomMap_[&(*i)] = has_hot_mom;
         }
     }
 
@@ -99,12 +104,9 @@ GenPartFromZDecay::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
     for (map<const reco::GenParticle*, bool>::const_iterator i = hasZMomMap_.begin();
         i != hasZMomMap_.end();
         ++i) {
-        if (!inverted_ && i->second) {
-            out->push_back(*i->first);
-        } else if (inverted_ && !i->second) {
+        if (!inverted_ == i->second) {
             out->push_back(*i->first);
         }
-
     }
     hasZMomMap_.clear();
 
