@@ -5,7 +5,7 @@ import FWCore.ParameterSet.Config as cms
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing ('standard')
 options.register('runOnMC', True, VarParsing.multiplicity.singleton, VarParsing.varType.bool, "decide if run on MC or data")
-options.register('outputFile', 'TTdilep_presel.root', VarParsing.multiplicity.singleton, VarParsing.varType.string, "name of output file")
+options.register('outputFile', '/nfs/dust/cms/user/tholenhe/samples/TTdilep_presel.root', VarParsing.multiplicity.singleton, VarParsing.varType.string, "name of output file")
 if( hasattr(sys, "argv") ):
     options.parseArguments()
 
@@ -153,9 +153,9 @@ process.out.SelectEvents.SelectEvents = []
 
 ### Trigger selection
 if runOnMC:
-  triggerSelection = "HLT_Mu8_Ele17_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v* || HLT_Mu17_Ele8_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v*"
+  triggerSelection = "HLT_Mu8_Ele17_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v* OR HLT_Mu17_Ele8_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v*"
 else:
-  triggerSelection = "HLT_Mu8_Ele17_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v* || HLT_Mu17_Ele8_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v*"
+  triggerSelection = "HLT_Mu8_Ele17_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v* OR HLT_Mu17_Ele8_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v*"
 from TopQuarkAnalysis.Configuration.patRefSel_triggerSelection_cff import triggerResults
 process.step0a = triggerResults.clone(
   triggerConditions = [ triggerSelection ]
@@ -337,6 +337,7 @@ process.out.outputCommands += [ 'keep edmTriggerResults_*_*_*'
                               , 'keep *_offlineBeamSpot_*_*'
                               , 'keep *_offlinePrimaryVertices*_*_*'
                               , 'keep *_goodOfflinePrimaryVertices*_*_*'
+                              , 'keep *_*_*_RECO'
                               ]
 if runOnMC:
   process.out.outputCommands += [ 'keep GenEventInfoProduct_*_*_*'
