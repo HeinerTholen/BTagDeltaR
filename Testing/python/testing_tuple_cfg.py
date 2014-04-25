@@ -5,8 +5,6 @@ import FWCore.ParameterSet.Config as cms
 process = cms.Process("SecondaryVertex")
 
 # load the full reconstraction configuration, to make sure we're getting all needed dependencies
-#process.load("Configuration.StandardSequences.MagneticField_cff")
-#process.load("Configuration.StandardSequences.Geometry_cff")
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
 
 # for the conditions
@@ -41,7 +39,6 @@ process.closeBeePairs = cms.EDFilter(
 
 ################################################################# SV config ###
 
-#process.load("Configuration.StandardSequences.Reconstruction_cff")
 process.load("BTagDeltaR.My2ndVtxConfig.My2ndVtxConfig_cff")
 
 # path

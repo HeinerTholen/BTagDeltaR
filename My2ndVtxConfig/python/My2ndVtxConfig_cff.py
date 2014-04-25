@@ -77,4 +77,4 @@ my2ndVtxEventCont = cms.untracked.vstring(
        'keep *_inclusiveVertexFinder_*_*',
        'keep *_trackVertexArbitrator_*_*',
        'keep *_vertexMerger_*_*',
-),
+)
