@@ -5,10 +5,9 @@ import FWCore.ParameterSet.Config as cms
 process = cms.Process("SecondaryVertex")
 
 # load the full reconstraction configuration, to make sure we're getting all needed dependencies
-process.load("Configuration.StandardSequences.MagneticField_cff")
-process.load("Configuration.StandardSequences.Geometry_cff")
+#process.load("Configuration.StandardSequences.MagneticField_cff")
+#process.load("Configuration.StandardSequences.Geometry_cff")
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
-process.load("Configuration.StandardSequences.Reconstruction_cff")
 
 # for the conditions
 from Configuration.AlCa.autoCond import autoCond
@@ -42,73 +41,15 @@ process.closeBeePairs = cms.EDFilter(
 
 ################################################################# SV config ###
 
-# ak5pf
-process.MyAk5PFJetTracksAssociatorAtVertex = cms.EDProducer("JetTracksAssociatorAtVertex",
-    process.j2tParametersVX,
-    jets = cms.InputTag("ak5PFJets")
-)
-
-process.MyAk5PFImpactParameterPFTagInfos = process.impactParameterTagInfos.clone(
-    jetTracks = "MyAk5PFJetTracksAssociatorAtVertex"
-)
-
-process.MyAk5PFSecondaryVertexTagInfos = process.secondaryVertexTagInfos.clone(
-    trackIPTagInfos = cms.InputTag("MyAk5PFImpactParameterPFTagInfos")
-)
-process.MyAk5PFSecondaryVertexTagInfos.trackSelection.jetDeltaRMax = 0.5
-process.MyAk5PFSecondaryVertexTagInfos.vertexCuts.maxDeltaRToJetAxis = 0.5
-
-# ak7pf
-process.MyAk7PFJetTracksAssociatorAtVertex = cms.EDProducer("JetTracksAssociatorAtVertex",
-    process.j2tParametersVX,
-    jets = cms.InputTag("ak7PFJets")
-)
-
-process.MyAk7PFImpactParameterPFTagInfos = process.impactParameterTagInfos.clone(
-    jetTracks = "MyAk7PFJetTracksAssociatorAtVertex"
-)
-
-process.MyAk7PFSecondaryVertexTagInfos = process.secondaryVertexTagInfos.clone(
-    trackIPTagInfos = cms.InputTag("MyAk7PFImpactParameterPFTagInfos")
-)
-process.MyAk7PFSecondaryVertexTagInfos.trackSelection.jetDeltaRMax = 0.7
-process.MyAk7PFSecondaryVertexTagInfos.vertexCuts.maxDeltaRToJetAxis = 0.7
-
-# ivf
-process.load("RecoVertex.AdaptiveVertexFinder.inclusiveVertexing_cff")
-process.inclusiveMergedVerticesFiltered.vertexFilter.maxDeltaRToVtxMomentum = cms.double(0.7)
-
-
-process.MyAk5PFInclusiveSecondaryVertexFinderTagInfos = process.inclusiveSecondaryVertexFinderTagInfos.clone(
-    extSVDeltaRToJet = cms.double(0.5),
-    trackIPTagInfos = cms.InputTag("MyAk5PFImpactParameterPFTagInfos")
-)
-process.MyAk5PFInclusiveSecondaryVertexFinderTagInfos.vertexCuts.maxDeltaRToJetAxis = 0.5
-process.MyAk5PFInclusiveSecondaryVertexFinderTagInfos.trackSelection.jetDeltaRMax = 0.5
-
-process.MyAk7PFInclusiveSecondaryVertexFinderTagInfos = process.inclusiveSecondaryVertexFinderTagInfos.clone(
-    extSVDeltaRToJet = cms.double(0.7),
-    trackIPTagInfos = cms.InputTag("MyAk7PFImpactParameterPFTagInfos")
-)
-process.MyAk7PFInclusiveSecondaryVertexFinderTagInfos.vertexCuts.maxDeltaRToJetAxis = 0.7
-process.MyAk7PFInclusiveSecondaryVertexFinderTagInfos.trackSelection.jetDeltaRMax = 0.7
+#process.load("Configuration.StandardSequences.Reconstruction_cff")
+process.load("BTagDeltaR.My2ndVtxConfig.My2ndVtxConfig_cff")
 
 # path
 process.p = cms.Path(
     process.genPartFinalB *
     process.beePairs *
     process.closeBeePairs *
-    process.inclusiveVertexing *                    # ivf
-    process.inclusiveMergedVerticesFiltered *       # ivf
-    process.bToCharmDecayVertexMerged *             # ivf
-    process.MyAk5PFJetTracksAssociatorAtVertex *
-    process.MyAk5PFImpactParameterPFTagInfos *
-    process.MyAk5PFSecondaryVertexTagInfos *
-    process.MyAk7PFJetTracksAssociatorAtVertex *
-    process.MyAk7PFImpactParameterPFTagInfos *
-    process.MyAk7PFSecondaryVertexTagInfos *
-    process.MyAk5PFInclusiveSecondaryVertexFinderTagInfos *
-    process.MyAk7PFInclusiveSecondaryVertexFinderTagInfos
+    process.my2ndVtxSequence
 )
 
 
