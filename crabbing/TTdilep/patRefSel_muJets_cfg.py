@@ -5,9 +5,9 @@ import FWCore.ParameterSet.Config as cms
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing ('standard')
 options.register('runOnMC', True, VarParsing.multiplicity.singleton, VarParsing.varType.bool, "decide if run on MC or data")
-options.register('outputFile', 'patRefSel_muJets.root', VarParsing.multiplicity.singleton, VarParsing.varType.string, "name of output file")
+options.register('outputFile', 'TTdilep_presel.root', VarParsing.multiplicity.singleton, VarParsing.varType.string, "name of output file")
 if( hasattr(sys, "argv") ):
-  options.parseArguments()
+    options.parseArguments()
 
 
 process = cms.Process( 'PAT' )
@@ -24,48 +24,7 @@ process = cms.Process( 'PAT' )
 ### Data or MC?
 runOnMC = options.runOnMC
 
-### Switch on/off selection steps
-
-# Step 0a
-useTrigger      = True
-# Step 0b
-useGoodVertex   = True
-# Step 1
-useGoodMuon     = True
-# Step 2
-useMuonVeto     = True
-# Step 3
-useElectronVeto = True
-# Step 4a
-use1Jet         = True
-# Step 4b
-use2Jets        = True
-# Step 4c (choice depends on trigger)
-use3JetsLoose   = True
-use3JetsTight   = True
-# Step 5
-use4Jets        = True
-
-### Trigger matching?
-addTriggerMatching = True
-
-### Reference selection
-
 from TopQuarkAnalysis.Configuration.patRefSel_refMuJets import *
-# Muons general
-#muonsUsePV     = True
-#muonEmbedTrack = True
-# Muons
-#muonCut       = ''
-#signalMuonCut = ''
-#muonVertexMaxDZ = 0.5
-# Electrons
-#electronCut = ''
-# Jets
-#jetCut          = ''
-#veryLooseJetCut = 'pt > 20.' # transverse momentum (all jets)
-#looseJetCut     = 'pt > 35.' # transverse momentum (3rd jet, optional for 'use3JetsLoose = True')
-#tightJetCut     = 'pt > 45.' # transverse momentum (leading jets)
 
 # Trigger and trigger object
 #triggerSelectionData       = ''
@@ -124,8 +83,8 @@ typeIMetCorrections = True
 ### Input
 
 # list of input files
-useRelVals = True # if 'False', "inputFiles" is used
-inputFiles = [] # overwritten, if "useRelVals" is 'True'
+useRelVals = True # if 'Falsed', "inputFiles" is used
+inputFiles = ["file:/nfs/dust/cms/user/tholenhe/samples/TTdilep.root"] # overwritten, if "useRelVals" is 'True'
 
 # maximum number of events
 maxEvents = options.maxEvents
@@ -142,7 +101,7 @@ globalTagMC   = 'START53_V27::All'
 outputFile = options.outputFile
 
 # event frequency of Fwk report
-fwkReportEvery = 1000
+fwkReportEvery = 10
 
 # switch for 'TrigReport'/'TimeReport' at job end
 wantSummary = True
@@ -169,14 +128,6 @@ else:
 ###
 ### Input configuration
 ###
-
-if useRelVals:
-  if runOnMC:
-    from PhysicsTools.PatAlgos.patInputFiles_cff import filesRelValProdTTbarAODSIM
-    inputFiles = filesRelValProdTTbarAODSIM
-  else:
-    from PhysicsTools.PatAlgos.patInputFiles_cff import filesSingleMuRECO
-    inputFiles = filesSingleMuRECO
 process.load( "TopQuarkAnalysis.Configuration.patRefSel_inputModule_cfi" )
 process.source.fileNames = inputFiles
 process.maxEvents.input  = maxEvents
@@ -202,9 +153,9 @@ process.out.SelectEvents.SelectEvents = []
 
 ### Trigger selection
 if runOnMC:
-  triggerSelection = triggerSelectionMC
+  triggerSelection = "HLT_Mu8_Ele17_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v* || HLT_Mu17_Ele8_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v*"
 else:
-  triggerSelection = triggerSelectionData
+  triggerSelection = "HLT_Mu8_Ele17_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v* || HLT_Mu17_Ele8_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v*"
 from TopQuarkAnalysis.Configuration.patRefSel_triggerSelection_cff import triggerResults
 process.step0a = triggerResults.clone(
   triggerConditions = [ triggerSelection ]
@@ -394,6 +345,8 @@ if runOnMC:
                                 ]
 
 
+
+
 ###
 ### Additional configuration
 ###
@@ -412,39 +365,25 @@ setattr( process, 'step1' + postfix, step1 )
 step2.src = cms.InputTag( 'selectedPatMuons' + postfix )
 setattr( process, 'step2' + postfix, step2 )
 
+
 ### Jets
 
-veryLoosePatJets.src = cms.InputTag( 'selectedPatJets' + postfix )
-veryLoosePatJets.cut = veryLooseJetCut
-setattr( process, 'veryLoosePatJets' + postfix, veryLoosePatJets )
-loosePatJets.src = cms.InputTag( 'veryLoosePatJets' + postfix )
-loosePatJets.cut = looseJetCut
-setattr( process, 'loosePatJets' + postfix, loosePatJets )
-tightPatJets.src = cms.InputTag( 'loosePatJets' + postfix )
-tightPatJets.cut = tightJetCut
-setattr( process, 'tightPatJets' + postfix, tightPatJets )
 
-step4a.src = cms.InputTag( 'tightPatJets' + postfix )
-setattr( process, 'step4a' + postfix, step4a )
-step4b.src = cms.InputTag( 'tightPatJets' + postfix )
-setattr( process, 'step4b' + postfix, step4b )
-step4cTight.src = cms.InputTag( 'tightPatJets' + postfix )
-setattr( process, 'step4cTight' + postfix, step4cTight )
-step4cLoose.src = cms.InputTag( 'loosePatJets' + postfix )
-setattr( process, 'step4cLoose' + postfix, step4cLoose )
-step5.src = cms.InputTag( 'veryLoosePatJets' + postfix )
-setattr( process, 'step5' + postfix, step5  )
 
 ### Electrons
+
+step3 = cms.EDFilter(
+  "PATCandViewCountFilter"
+, src = cms.InputTag( 'selectedPatElectrons' )
+, minNumber = cms.uint32( 1 )
+, maxNumber = cms.uint32( 1 )
+)
 
 step3.src = cms.InputTag( 'selectedPatElectrons' + postfix )
 setattr( process, 'step3' + postfix, step3 )
 
 process.out.outputCommands.append( 'keep *_goodPatMuons*_*_*' )
-process.out.outputCommands.append( 'keep *_veryLoosePatJets*_*_*' )
-process.out.outputCommands.append( 'keep *_loosePatJets*_*_*' )
-process.out.outputCommands.append( 'keep *_tightPatJets*_*_*' )
-
+process.out.outputCommands.append( 'keep *_selectedPatElectrons*_*_*' )
 
 ###
 ### Selection configuration
@@ -457,52 +396,17 @@ getattr( process, 'patMuons' + postfix ).embedTrack = muonEmbedTrack
 
 getattr( process, 'selectedPatMuons' + postfix ).cut = muonCut
 
-getattr( process, 'intermediatePatMuons' + postfix ).cut = signalMuonCut
+getattr( process, 'intermediatePatMuons' + postfix ).cut = "pt > 20." #signalMuonCut
 
 getattr( process, 'goodPatMuons' + postfix ).maxDZ = muonVertexMaxDZ
 
 ### Jets
-
-getattr( process, 'selectedPatJets'  + postfix ).cut = jetCut
-getattr( process, 'veryLoosePatJets' + postfix ).cut = veryLooseJetCut
-getattr( process, 'loosePatJets'     + postfix ).cut = looseJetCut
-getattr( process, 'tightPatJets'     + postfix ).cut = tightJetCut
 
 ### Electrons
 
 getattr( process, 'patElectrons' + postfix ).electronIDSources = electronIDSources
 
 getattr( process, 'selectedPatElectrons' + postfix ).cut = electronCut
-
-
-###
-### Trigger matching
-###
-
-if addTriggerMatching:
-
-  if runOnMC:
-    triggerObjectSelection = triggerObjectSelectionMC
-  else:
-    triggerObjectSelection = triggerObjectSelectionData
-  ### Trigger matching configuration
-  from PhysicsTools.PatAlgos.triggerLayer1.triggerProducer_cfi import patTrigger
-  from TopQuarkAnalysis.Configuration.patRefSel_triggerMatching_cfi import patMuonTriggerMatch
-  from PhysicsTools.PatAlgos.tools.trigTools import *
-  triggerProducerPF = patTrigger.clone()
-  setattr( process, 'patTrigger' + postfix, triggerProducerPF )
-  triggerMatchPF = patMuonTriggerMatch.clone( matchedCuts = triggerObjectSelection )
-  setattr( process, 'triggerMatch' + postfix, triggerMatchPF )
-  switchOnTriggerMatchEmbedding( process
-                               , triggerProducer = 'patTrigger' + postfix
-                               , triggerMatchers = [ 'triggerMatch' + postfix ]
-                               , sequence        = 'patPF2PATSequence' + postfix
-                               , postfix         = postfix
-                               )
-  removeCleaningFromTriggerMatching( process
-                                   , sequence = 'patPF2PATSequence' + postfix
-                                   )
-  getattr( process, 'intermediatePatMuons' + postfix ).src = cms.InputTag( 'selectedPatMuons' + postfix + 'TriggerMatch' )
 
 
 ###
@@ -522,38 +426,20 @@ process.eidMVASequence = cms.Sequence(
 patAddOnSequence = cms.Sequence(
   getattr( process, 'intermediatePatMuons' + postfix )
 * getattr( process, 'goodPatMuons'         + postfix )
-* getattr( process, 'veryLoosePatJets'     + postfix )
-* getattr( process, 'loosePatJets'         + postfix )
-* getattr( process, 'tightPatJets'         + postfix )
 )
 setattr( process, 'patAddOnSequence' + postfix, patAddOnSequence )
 
 # The paths
 
 process.p = cms.Path()
-if useTrigger:
-  process.p += process.step0a
+process.p += process.step0a
 process.p += process.goodOfflinePrimaryVertices
-if useGoodVertex:
-  process.p += process.step0b
+process.p += process.step0b
 process.p += process.step0c
 process.p += process.eidMVASequence
 process.p += getattr( process, 'patPF2PATSequence' + postfix )
 process.p += getattr( process, 'patAddOnSequence' + postfix )
-if useGoodMuon:
-  process.p += getattr( process, 'step1' + postfix )
-if useMuonVeto:
-  process.p += getattr( process, 'step2' + postfix )
-if useElectronVeto:
-  process.p += getattr( process, 'step3' + postfix )
-if use1Jet:
-  process.p += getattr( process, 'step4a' + postfix )
-if use2Jets:
-  process.p += getattr( process, 'step4b' + postfix )
-if use3JetsTight:
-  process.p += getattr( process, 'step4cTight' + postfix )
-elif use3JetsLoose:
-  process.p += getattr( process, 'step4cLoose' + postfix )
-if use4Jets:
-  process.p += getattr( process, 'step5' + postfix )
+process.p += getattr( process, 'step1' + postfix )
+process.p += getattr( process, 'step2' + postfix )
+process.p += getattr( process, 'step3' + postfix )
 process.out.SelectEvents.SelectEvents.append( 'p' )
