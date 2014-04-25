@@ -430,6 +430,12 @@ patAddOnSequence = cms.Sequence(
 )
 setattr( process, 'patAddOnSequence' + postfix, patAddOnSequence )
 
+
+# Heiners additional vertexing
+import BTagDeltaR.My2ndVtxConfig.My2ndVtxConfig_cff as my_sv
+process.extend(my_sv)
+process.out.outputCommands += my_sv.my2ndVtxEventCont
+
 # The paths
 
 process.p = cms.Path()
@@ -443,4 +449,5 @@ process.p += getattr( process, 'patAddOnSequence' + postfix )
 process.p += getattr( process, 'step1' + postfix )
 process.p += getattr( process, 'step2' + postfix )
 process.p += getattr( process, 'step3' + postfix )
+process.p += process.my2ndVtxSequence
 process.out.SelectEvents.SelectEvents.append( 'p' )
