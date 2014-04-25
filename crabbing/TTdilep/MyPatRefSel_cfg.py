@@ -5,7 +5,10 @@ import FWCore.ParameterSet.Config as cms
 from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing ('standard')
 options.register('runOnMC', True, VarParsing.multiplicity.singleton, VarParsing.varType.bool, "decide if run on MC or data")
-options.register('outputFile', '/nfs/dust/cms/user/tholenhe/samples/TTdilep_presel.root', VarParsing.multiplicity.singleton, VarParsing.varType.string, "name of output file")
+options.register('outputFile',
+                 #'/nfs/dust/cms/user/tholenhe/samples/TTdilep_presel.root',
+                 'TTdilep_presel.root',
+                 VarParsing.multiplicity.singleton, VarParsing.varType.string, "name of output file")
 if( hasattr(sys, "argv") ):
     options.parseArguments()
 
