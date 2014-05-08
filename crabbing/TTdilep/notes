@@ -5,3 +5,5 @@ HLT_Mu17_Ele8_CaloIdT_CaloIsoVL_TrkIdVL_TrkIsoVL_v
 
 voms-proxy-init -rfc -vomses /afs/cern.ch/project/gd/LCG-share/new_3.2/glite/etc/vomses -voms cms:/cms/dcms -valid 192:00 --debug
 
+number of read events: 11995550
+
