@@ -38,6 +38,7 @@ MyAk7PFSecondaryVertexTagInfos.vertexCuts.maxDeltaRToJetAxis = 0.7
 # ivf
 from RecoVertex.AdaptiveVertexFinder.inclusiveVertexing_cff import *
 inclusiveMergedVerticesFiltered.vertexFilter.maxDeltaRToVtxMomentum = cms.double(0.7)
+inclusiveMergedVerticesFiltered.vertexFilter.maxDeltaRToJetAxis = cms.double(0.7)
 
 
 MyAk5PFInclusiveSecondaryVertexFinderTagInfos = inclusiveSecondaryVertexFinderTagInfos.clone(

@@ -375,7 +375,7 @@ process.eidMVASequence = cms.Sequence(
 + process.mvaNonTrigV0
 )
 
-### Heiner's preselection
+### Heiners preselection
 process.jetPreselector = cms.EDFilter("CandViewSelector",
     src=cms.InputTag("ak5PFJets"),
     cut=cms.string('pt > 20.')
@@ -391,7 +391,7 @@ process.preselection = cms.Sequence(
     process.jetPreFilter
 )
 
-### Heiner's dijet selection
+### Heiners dijet selection
 process.selectedPatJetsPF.cut = 'pt > 15.'
 
 process.twoJetFilter = cms.EDFilter(
@@ -413,11 +413,11 @@ process.dijetPair = cms.EDProducer(
     src=cms.InputTag("selectedPatJetsPF")
 )
 cutstr_dr = "deltaR(" \
-            "daughterPtr(0).eta, daughterPtr(0).phi, " \
-            "daughterPtr(1).eta, daughterPtr(1).phi)"
+            "0., daughterPtr(0).phi, " \
+            "0., daughterPtr(1).phi)" # only delta phi
 process.dijetDeltaRFilter = cms.EDFilter("CandViewSelector",
     src=cms.InputTag("dijetPair"),
-    cut=cms.string(cutstr_dr + ' > 2.'),
+    cut=cms.string(cutstr_dr + ' > 2.7'),
     filter=cms.bool(True)
 )
 
@@ -425,8 +425,16 @@ process.dijetSequence = cms.Sequence(
     process.twoJetFilter *
     process.dijetPair *
     process.averageJetPt *
-    process.dijetDeltaRFilter 
+    process.dijetDeltaRFilter
 )
+
+### Heiners additional event content
+process.out.outputCommands += ['keep *_*_*_RECO']
+
+### Heiners additional vertexing
+import BTagDeltaR.My2ndVtxConfig.My2ndVtxConfig_cff as my_sv
+process.extend(my_sv)
+process.out.outputCommands += my_sv.my2ndVtxEventCont
 
 
 # The paths
@@ -444,4 +452,5 @@ else:
 process.p += process.eidMVASequence
 process.p += getattr( process, 'patPF2PATSequence' + postfix )
 process.p += process.dijetSequence
+process.p += process.my2ndVtxSequence
 process.out.SelectEvents.SelectEvents.append( 'p' )
