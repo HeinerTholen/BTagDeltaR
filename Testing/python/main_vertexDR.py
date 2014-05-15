@@ -2,7 +2,7 @@ import ROOT
 import itertools
 import glob
 
-from varial import fwliteworker
+from varial import fwliteworker, diskio
 from MyUtility.PythonUtil.genParticles import final_b_mesons
 from DataFormats.FWLite import Events, Handle
 
@@ -65,35 +65,35 @@ class Worker(fwliteworker.FwliteWorker):
 
         fs = self.result
         fs.NumFinalBs = ROOT.TH1D(
-            "NumFinalBs",
+            "NumFinalBs" + "_" + name,
             ";number of final B's;number of events",
             8, -.5, 7.5
         )
         fs.NumIvfVertices = ROOT.TH1D(
-            "NumIvfVertices",
+            "NumIvfVertices" + "_" + name,
             ";number of IVF vertices;number of events",
             8, -.5, 7.5
         )
 
         # with n_ivf == 2, no / one / two matched
         fs.VertexDR = ROOT.TH1D(
-            "VertexDR",
-            ";#Delta R;number of vertices",
+            "VertexDR" + "_" + name,
+            ";#Delta R;number of events",
             100, 0., 5.
         )
         fs.VertexDRNoMatch = ROOT.TH1D(
-            "VertexDRNoMatch",
-            ";#Delta R;number of vertices",
+            "VertexDRNoMatch" + "_" + name,
+            ";#Delta R;number of events",
             100, 0., 5.
         )
         fs.VertexDROneMatch = ROOT.TH1D(
-            "VertexDROneMatch",
-            ";#Delta R;number of vertices",
+            "VertexDROneMatch" + "_" + name,
+            ";#Delta R;number of events",
             100, 0., 5.
         )
         fs.VertexDRTwoMatch = ROOT.TH1D(
-            "VertexDRTwoMatch",
-            ";#Delta R;number of vertices",
+            "VertexDRTwoMatch" + "_" + name,
+            ";#Delta R;number of events",
             100, 0., 5.
         )
         self.vtx_dr_histos = [
@@ -101,6 +101,9 @@ class Worker(fwliteworker.FwliteWorker):
             fs.VertexDROneMatch,
             fs.VertexDRTwoMatch
         ]
+
+    def node_setup(self, event_handle):
+        print "Starting:", event_handle._filenames, self.result.name
 
     def node_process_event(self, event):
         fs = self.result
@@ -139,11 +142,13 @@ if __name__ == '__main__':
     ]
 
     event_handles = map(
-        lambda f: iter(Events("file:%s"%f)),
+        lambda f: Events("file:%s" % f),
         glob.glob(
             "/nfs/dust/cms/user/tholenhe/samples/"
             "DoubleVtxEffTTdilep/TTdilep_presel_*.root"
-        )
+        )[:10]
     )
 
-    fwliteworker.start_work(workers, event_handles)
+    res = fwliteworker.work(workers, event_handles)
+    for r in res.values():
+        diskio.write(r)
