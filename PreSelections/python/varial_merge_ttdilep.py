@@ -52,6 +52,7 @@ def main():
             files[sample] = f.readlines()
 
     if used_das_client:
+        os.system("head -3 _tmp_das_*")
         print "WARNING I used the das client to query for filenames."
         print "WARNING Therefore, I do not execute cmsRun. Please make "
         print "WARNING sure the _tmp_* files contain correct entries. "
