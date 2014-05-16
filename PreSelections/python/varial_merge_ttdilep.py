@@ -10,14 +10,14 @@ import varial.sample
 
 tmp_dataset = '_tmp_das_datasets.txt'
 tmp_files = '_tmp_das_files_%s.txt'
-dbs_command_datasets = 'das_client.py --query "' \
+dbs_command_datasets = 'das_client.py --limit 10000 --query "' \
     'instance=prod/phys03 ' \
     'dataset=/*/*tholen-TTdil*/USER' \
     '" | grep htholen > ' + tmp_dataset
-dbs_command_files = 'das_client.py --query "' \
+dbs_command_files = 'das_client.py --limit 10000 --query "' \
     'instance=prod/phys03 ' \
     'file dataset=%s' \
-    '" --limit 10000 | grep htholen > ' + tmp_files
+    '" | grep htholen > ' + tmp_files
 output_dir = '/nfs/dust/cms/user/tholenhe/samples/TTdilep/'
 
 
@@ -32,9 +32,12 @@ def parse_sample_name(dataset):
 
 
 def main():
+    used_das_client = False
+
     # query datasets
     if not os.path.exists(tmp_dataset):
         os.system(dbs_command_datasets)
+        used_das_client = True
     with open('_tmp_das_datasets.txt') as f:
         datasets = f.readlines()
     datasets = dict((parse_sample_name(d), d) for d in datasets)
@@ -44,8 +47,15 @@ def main():
     for sample, dataset in datasets.iteritems():
         if not os.path.exists(tmp_files % sample):
             os.system(dbs_command_files % (dataset, sample))
+            used_das_client = True
         with open(tmp_files % sample) as f:
             files[sample] = f.readlines()
+
+    if used_das_client:
+        print "WARNING I used the das client to query for filenames."
+        print "WARNING Therefore, I do not execute cmsRun. Please make "
+        print "WARNING sure the _tmp_* files contain correct entries. "
+        return
 
     samples = {}
     for sample, files in files.iteritems():
@@ -68,7 +78,7 @@ def main():
         samples=samples,
         cfg_use_file_service=False,
         try_reuse_results=True,
-        suppress_cmsRun_exec=True,
+        suppress_cmsRun_exec=used_das_client,
         cfg_main_import_path="BTagDeltaR.PreSelections.MergeTtdilep_cfg"
     )
 
