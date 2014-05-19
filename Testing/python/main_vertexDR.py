@@ -1,9 +1,9 @@
 import ROOT
-import itertools
 import glob
 
 from varial import fwliteworker, diskio
 from MyUtility.PythonUtil.genParticles import final_b_mesons
+from MyUtility.PythonUtil.eventlooputility import *
 from DataFormats.FWLite import Events, Handle
 
 
@@ -12,17 +12,6 @@ DR_for_matching = 0.1
 h_genParticles = Handle("vector<reco::GenParticle>")
 h_pv = Handle("vector<reco::Vertex>")
 h_ivf = Handle("vector<reco::Vertex>")
-
-
-# functions
-def my_deltaR(a, b):
-    return (
-        (a.eta()-b.eta())**2
-        + (float(a.phi())-float(b.phi()))**2
-    )**.5
-DeltaR = ROOT.Math.VectorUtil.DeltaR
-deltaR = lambda a, b: DeltaR(a.p4(), b.p4())
-deltaR_vec_to_cand = lambda a, b: my_deltaR(a, b.p4())
 
 
 def get_all_flight_dirs(vertices, primary_vertex):
@@ -36,32 +25,11 @@ def get_all_flight_dirs(vertices, primary_vertex):
     return list(mkfd(sv) for sv in vertices)
 
 
-def matching(flightdirs, gen_final_bs, keyfunc, cutvalue):
-    combos = itertools.product(flightdirs, gen_final_bs)                 # all combos
-    combos = ((fd, bee, keyfunc(fd, bee)) for fd, bee in combos)         # add dR
-    combos = list(c for c in combos if c[2] < cutvalue)                  # select < 0.1
-    matched_combos = []
-    while combos:
-        fd, _, _ = combos[0]                                             # start with a flight direction
-        bees = list(                                                     # all bees that pair
-            b for fd2, b, _ in combos
-            if fd == fd2
-        )
-        cluster = filter(lambda c: c[1] in bees, combos)                 # all combos with these bees
-        match = min(cluster, key=lambda c: c[2])                         # select combo with lowest dR
-        combos = filter(                                                 # remove all with same fd and b
-            lambda c: not (c[0]==match[0] or c[1]==match[1]),
-            combos
-        )
-        matched_combos.append(match)
-
-    return matched_combos
-
-
 class Worker(fwliteworker.FwliteWorker):
-    def __init__(self, name, collection):
+    def __init__(self, name, collection, filter_ivf_dr=0.):
         super(Worker, self).__init__(name)
         self.collection = collection
+        self.filter_ivf_dr = filter_ivf_dr
 
         fs = self.result
         fs.NumFinalBs = ROOT.TH1D(
@@ -108,16 +76,25 @@ class Worker(fwliteworker.FwliteWorker):
     def node_process_event(self, event):
         fs = self.result
 
+        # ivf vertices
+        event.getByLabel(self.collection, h_ivf)
+        ivf_vtx = h_ivf.product()
+        if self.filter_ivf_dr:
+            ivf_vtx = filter(
+                lambda v: my_deltaR(v.position(), v.p4()) < self.filter_ivf_dr,
+                ivf_vtx
+            )
+
         # final B hadron generator particles
         event.getByLabel("genParticles", h_genParticles)
         genParticles = h_genParticles.product()
         fin_bs = final_b_mesons(genParticles)
 
-        # ivf vertices
+        # flight directions
         event.getByLabel("goodOfflinePrimaryVertices", h_pv)
-        event.getByLabel(self.collection, h_ivf)
+
         flightdirs = get_all_flight_dirs(
-            h_ivf.product(), h_pv.product()[0]
+            ivf_vtx, h_pv.product()[0]
         )
         matched_fds = matching(
             flightdirs, fin_bs, deltaR_vec_to_cand, DR_for_matching
@@ -127,11 +104,17 @@ class Worker(fwliteworker.FwliteWorker):
         fs.NumFinalBs.Fill(len(fin_bs))
         fs.NumIvfVertices.Fill(len(flightdirs))
 
-        # fill histos for n_matched == 2
-        if len(flightdirs) == 2:
-            flightdir_dR = my_deltaR(*flightdirs)
-            fs.VertexDR.Fill(flightdir_dR)
-            self.vtx_dr_histos[len(matched_fds)].Fill(flightdir_dR)
+        # two or more vertices
+        if len(flightdirs) > 1:
+
+            # if more than two, take the ones closer together
+            if len(flightdirs) > 2:
+                combos = itertools.combinations(flightdirs, 2)
+                flightdirs = min(combos, lambda a, b: my_deltaR(a, b))
+
+            flightdir_dr = my_deltaR(*flightdirs)
+            fs.VertexDR.Fill(flightdir_dr)
+            self.vtx_dr_histos[len(matched_fds)].Fill(flightdir_dr)
 
 
 if __name__ == '__main__':
@@ -139,6 +122,9 @@ if __name__ == '__main__':
         Worker("ivf_merged", "inclusiveMergedVertices"),
         Worker("ivf_merged_filt", "inclusiveMergedVerticesFiltered"),
         Worker("ivf_b2c_merged", "bToCharmDecayVertexMerged"),
+        Worker("ivf_merged", "inclusiveMergedVertices", 0.1),
+        Worker("ivf_merged_filt", "inclusiveMergedVerticesFiltered", 0.1),
+        Worker("ivf_b2c_merged", "bToCharmDecayVertexMerged", 0.1),
     ]
 
     event_handles = map(
