@@ -6,6 +6,7 @@ ROOT.gROOT.SetBatch()
 import varial
 import varial.main
 import varial.sample
+varial.use_fancy_folders()
 
 
 tmp_dataset = '_tmp_das_datasets.txt'
