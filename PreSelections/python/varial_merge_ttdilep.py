@@ -55,14 +55,17 @@ def main():
         os.system("head -3 _tmp_das_*")
         print "WARNING I used the das client to query for filenames."
         print "WARNING Therefore, I do not execute cmsRun. Please make "
-        print "WARNING sure the _tmp_* files contain correct entries. "
+        print "WARNING sure the _tmp_das_* files (see above) are not empty."
         return
 
     samples = {}
     for sample, files in files.iteritems():
 
         # group with number of files
-        groups = itertools.izip(*[iter(files)]*10)
+        if "TTbar" == sample:
+            groups = itertools.izip(*[iter(files)]*5)
+        else:
+            groups = itertools.izip(*[iter(files)]*20)
 
         # make samples
         for i, grp in enumerate(groups):
