@@ -6,7 +6,6 @@ ROOT.gROOT.SetBatch()
 import varial
 import varial.main
 import varial.sample
-varial.use_fancy_folders()
 
 
 tmp_dataset = '_tmp_das_datasets.txt'
@@ -59,7 +58,7 @@ def main():
         print "WARNING sure the _tmp_* files contain correct entries. "
         return
 
-    samples = {}
+    samples = []
     for sample, files in files.iteritems():
 
         # group with number of files
@@ -68,20 +67,18 @@ def main():
         # make samples
         for i, grp in enumerate(groups):
             name = '%s_%d' % (sample, i)
-            samples[name] = varial.sample.Sample(
+            samples.append(varial.sample.Sample(
                 name=name,
                 is_data="TTdilepData" in grp[0],
                 input_files=grp,
                 output_file=output_dir,
                 lumi=1.
-            )
+            ))
 
     varial.main.main(
         samples=samples,
-        cfg_use_file_service=False,
-        try_reuse_results=True,
-        suppress_cmsRun_exec=used_das_client,
-        cfg_main_import_path="BTagDeltaR.PreSelections.MergeTtdilep_cfg"
+        cmsRun_use_file_service=False,
+        cmsRun_main_import_path="BTagDeltaR.PreSelections.MergeTtdilep_cfg"
     )
 
 
