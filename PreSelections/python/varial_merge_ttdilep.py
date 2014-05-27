@@ -65,7 +65,7 @@ def main():
         if "TTbar" == sample:
             groups = itertools.izip(*[iter(files)]*5)
         else:
-            groups = itertools.izip(*[iter(files)]*20)
+            groups = itertools.izip(*[iter(files)]*25)
 
         # make samples
         for i, grp in enumerate(groups):
