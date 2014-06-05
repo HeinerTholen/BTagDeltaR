@@ -13,6 +13,7 @@ DR_for_matching = 0.1
 h_genParticles = Handle("vector<reco::GenParticle>")
 h_pv = Handle("vector<reco::Vertex>")
 h_ivf = Handle("vector<reco::Vertex>")
+fd_dr = lambda a, b: deltaR_vec_to_vec(a[1], b[1])
 
 
 def get_tuples_with_flight_dirs(vertices, primary_vertex):
@@ -36,15 +37,24 @@ class Worker(fwliteworker.FwliteWorker):
 
     def node_setup(self, init_wrp):
         name = self.name
+        if not hasattr(init_wrp, 'announced'):
+            init_wrp.announced = True
+            print "Starting:", \
+                init_wrp.__dict__.get('sample'), init_wrp.filenames
+
         fs = self.result
-        fs.NumFinalBs = ROOT.TH1D(
-            "NumFinalBs" + "_" + name,
-            ";number of final B's;number of events",
-            8, -.5, 7.5
-        )
         fs.NumIvfVertices = ROOT.TH1D(
             "NumIvfVertices" + "_" + name,
             ";number of IVF vertices;number of events",
+            8, -.5, 7.5
+        )
+
+        if "Run" in init_wrp.__dict__.get('sample'):
+            return
+
+        fs.NumFinalBs = ROOT.TH1D(
+            "NumFinalBs" + "_" + name,
+            ";number of final B's;number of events",
             8, -.5, 7.5
         )
 
@@ -94,21 +104,9 @@ class Worker(fwliteworker.FwliteWorker):
             fs.DrMomentumFlightdirOneMatch,
             fs.DrMomentumFlightdirTwoMatch,
         ]
-        if not hasattr(init_wrp, 'announced'):
-            init_wrp.announced = True
-            print "Starting:", \
-                init_wrp.__dict__.get('sample'), init_wrp.filenames
 
     def node_process_event(self, event):
-        if event.eventAuxiliary().isRealData():
-            return
-
         fs = self.result
-
-        # final B hadron generator particles
-        event.getByLabel("genParticles", h_genParticles)
-        genParticles = h_genParticles.product()
-        fin_bs = final_b_mesons(genParticles)
 
         # ivf vertices
         event.getByLabel(self.collection, h_ivf)
@@ -119,7 +117,6 @@ class Worker(fwliteworker.FwliteWorker):
         ivf_vtx_fd = get_tuples_with_flight_dirs(
             ivf_vtx, h_pv.product()[0]
         )
-        fd_dr = lambda a, b: deltaR_vec_to_vec(a[1], b[1])
 
         # filter ivf vertices for momentum direction
         if self.filter_ivf_dr:
@@ -131,9 +128,17 @@ class Worker(fwliteworker.FwliteWorker):
                 ivf_vtx_fd
             )
 
-        # fill histos for all events
-        fs.NumFinalBs.Fill(len(fin_bs))
         fs.NumIvfVertices.Fill(len(ivf_vtx_fd))
+
+        # end of story for data
+        if event.eventAuxiliary().isRealData():
+            return
+
+        # final B hadron generator particles
+        event.getByLabel("genParticles", h_genParticles)
+        genParticles = h_genParticles.product()
+        fin_bs = final_b_mesons(genParticles)
+        fs.NumFinalBs.Fill(len(fin_bs))
 
         # right now, use only with exactly two ivf sv's
         if len(ivf_vtx_fd) != 2:
@@ -180,9 +185,9 @@ workers = [
     Worker("ivf_merged", "inclusiveMergedVertices"),
     Worker("ivf_merged_filt", "inclusiveMergedVerticesFiltered"),
     Worker("ivf_b2c_merged", "bToCharmDecayVertexMerged"),
-    Worker("ivf_merged_momDR", "inclusiveMergedVertices", 0.1),
-    Worker("ivf_merged_filt_momDR", "inclusiveMergedVerticesFiltered", 0.1),
-    Worker("ivf_b2c_merged_momDR", "bToCharmDecayVertexMerged", 0.1),
+    #Worker("ivf_merged_momDR", "inclusiveMergedVertices", 0.1),
+    #Worker("ivf_merged_filt_momDR", "inclusiveMergedVerticesFiltered", 0.1),
+    #Worker("ivf_b2c_merged_momDR", "bToCharmDecayVertexMerged", 0.1),
 ]
 
 

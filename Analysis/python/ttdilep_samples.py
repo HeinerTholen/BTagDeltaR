@@ -1,5 +1,16 @@
+import ROOT
+
 from varial.sample import Sample
 from glob import glob
+
+
+colors = {
+    'Di-boson': ROOT.kYellow,
+    'Single top': ROOT.kMagenta,
+    'DY + jets': ROOT.kBlue,
+    'W + jets': ROOT.kOrange,
+    'TTbar': ROOT.kRed,
+}
 
 
 class TTDilepEMuSample(Sample):
@@ -62,21 +73,21 @@ smp_emu_mc.append(TTDilepEMuSample(
     name='ZJets10to50',
     x_sec=11050.0,
     n_events=37835275,
-    legend='DY + Jets',
+    legend='DY + jets',
 ))
 
 smp_emu_mc.append(TTDilepEMuSample(
     name='ZJets50plus',
     x_sec=2950.0,
     n_events=30458871,
-    legend='DY + Jets',
+    legend='DY + jets',
 ))
 
 smp_emu_mc.append(TTDilepEMuSample(
     name='WJets',
     x_sec=37509.,
     n_events=57709905,
-    legend='DY + Jets',
+    legend='W + jets',
 ))
 
 smp_emu_mc.append(TTDilepEMuSample(
