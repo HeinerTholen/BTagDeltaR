@@ -92,7 +92,7 @@ smp_emu_mc.append(TTDilepEMuSample(
 
 smp_emu_mc.append(TTDilepEMuSample(
     name='TTbar',
-    x_sec=245.,
+    x_sec=245./9.,
     n_events=12116717,
     legend='TTbar',
 ))
