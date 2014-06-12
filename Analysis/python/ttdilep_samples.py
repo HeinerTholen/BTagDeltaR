@@ -10,14 +10,20 @@ colors = {
     'DY + jets': ROOT.kBlue,
     'W + jets': ROOT.kOrange,
     'TTbar': ROOT.kRed,
+    'TTbar (no match)': ROOT.kRed - 9,
+    'TTbar (1 match)': ROOT.kRed - 4,
+    'TTbar (2 matches)': ROOT.kRed + 1,
 }
 
 
 class TTDilepEMuSample(Sample):
     def __init__(self, **kws):
+        filename = kws['name']
+        if 'TTbar' in filename:
+            filename = 'TTbar'
         kws['input_files'] = glob(
             '/nfs/dust/cms/user/tholenhe/samples/TTdilep/'
-            '%s_*.root' % kws['name']
+            '%s_*.root' % filename
         )
 
         # with open('_tmp_das_files_%s.txt' % kws['name']) as f:
@@ -91,12 +97,36 @@ smp_emu_mc.append(TTDilepEMuSample(
 ))
 
 smp_emu_mc.append(TTDilepEMuSample(
-    name='TTbar',
+    name='TTbarNoMatch',
     x_sec=245./9.,
-    n_events=12116717,
-    legend='TTbar',
+    n_events=12116717,  # * 15051. / 522465.,
+    legend='TTbar (no match)',
 ))
 
+smp_emu_mc.append(TTDilepEMuSample(
+    name='TTbarOneMatch',
+    x_sec=245./9.,
+    n_events=12116717,  # * 15051. / 522465.,
+    legend='TTbar (1 match)',
+))
+
+"""
+smp_emu_mc.append(TTDilepEMuSample(
+    name='TTbarTwoMatch',
+    x_sec=245./9.,
+    n_events=12116717,  # * 15051. / 522465.,
+    legend='TTbar (2 matches)',
+))
+
+smp_emu_mc.append(TTDilepEMuSample(
+    name='TTbar',
+    x_sec=245./9.,
+    n_events=12116717,  # * 15051. / 522465.,
+    legend='TTbar',
+))
+"""
+# presel: 522465
+# smp_emu_mc[-1].input_files = smp_emu_mc[-1].input_files[:12]
 
 ###################################################################### Data ###
 smp_emu_data = list()
