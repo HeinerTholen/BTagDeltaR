@@ -110,7 +110,13 @@ smp_emu_mc.append(TTDilepEMuSample(
     legend='TTbar (1 match)',
 ))
 
-"""
+smp_emu_mc.append(TTDilepEMuSample(
+    name='TTbarBDMatch',
+    x_sec=245./9.,
+    n_events=12116717,  # * 15051. / 522465.,
+    legend='TTbar (B+D match)',
+))
+
 smp_emu_mc.append(TTDilepEMuSample(
     name='TTbarTwoMatch',
     x_sec=245./9.,
@@ -118,6 +124,7 @@ smp_emu_mc.append(TTDilepEMuSample(
     legend='TTbar (2 matches)',
 ))
 
+"""
 smp_emu_mc.append(TTDilepEMuSample(
     name='TTbar',
     x_sec=245./9.,

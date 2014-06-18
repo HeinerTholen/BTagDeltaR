@@ -13,7 +13,7 @@ s.colors = ttdilep_samples.colors
 s.rootfile_postfixes = ['.root', '.png']
 s.fwlite_executable = os.path.join(
     os.environ['CMSSW_BASE'],
-    'src/BTagDeltaR/Analysis/python/vertexDR_worker.py',
+    'src/BTagDeltaR/Analysis/python/worker_vertexDR.py',
 )
 
 
@@ -32,5 +32,5 @@ if __name__ == '__main__':
     varial.main.main(
         samples=samples,
         toolchain=tc,
-        #max_num_processes=1,
+#        max_num_processes=1,
     )

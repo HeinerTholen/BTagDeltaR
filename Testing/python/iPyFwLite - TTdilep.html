@@ -1685,13 +1685,15 @@ div#notebook {
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">
-In&nbsp;[1]:
+In&nbsp;[6]:
 </div>
 <div class="inner_cell">
     <div class="input_area">
-<div class="highlight"><pre><span class="kn">import</span> <span class="nn">ROOT</span>
-<span class="kn">import</span> <span class="nn">itertools</span>
+<div class="highlight"><pre><span class="kn">import</span> <span class="nn">itertools</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">ROOT</span>
+<span class="kn">import</span> <span class="nn">varial</span>
+
 <span class="kn">from</span> <span class="nn">MyUtility.PythonUtil.genParticles</span> <span class="kn">import</span> <span class="n">daughters_of_z_boson</span><span class="p">,</span> <span class="n">final_b_mesons</span>
 <span class="kn">from</span> <span class="nn">DataFormats.FWLite</span> <span class="kn">import</span> <span class="n">Events</span><span class="p">,</span><span class="n">Handle</span>
 <span class="n">path_smp</span> <span class="o">=</span> <span class="s">&quot;file:/nfs/dust/cms/user/tholenhe/samples/&quot;</span>
@@ -1839,12 +1841,11 @@ In&nbsp;[4]:
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">
-In&nbsp;[5]:
+In&nbsp;[7]:
 </div>
 <div class="inner_cell">
     <div class="input_area">
-<div class="highlight"><pre><span class="kn">from</span> <span class="nn">varial</span> <span class="kn">import</span> <span class="n">diskio</span>
-<span class="n">fs</span> <span class="o">=</span> <span class="n">diskio</span><span class="o">.</span><span class="n">fileservice</span><span class="p">()</span>
+<div class="highlight"><pre><span class="n">fs</span> <span class="o">=</span> <span class="n">varial</span><span class="o">.</span><span class="n">analysis</span><span class="o">.</span><span class="n">fileservice</span><span class="p">()</span>
 <span class="n">fs</span><span class="o">.</span><span class="n">MinDeltaR</span> <span class="o">=</span> <span class="n">ROOT</span><span class="o">.</span><span class="n">TH1D</span><span class="p">(</span>
     <span class="s">&quot;MinDeltaR&quot;</span><span class="p">,</span> 
     <span class="s">&quot;;min #DeltaR between final B&#39;s;number of events&quot;</span><span class="p">,</span>
@@ -1894,7 +1895,7 @@ In&nbsp;[5]:
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">
-In&nbsp;[6]:
+In&nbsp;[8]:
 </div>
 <div class="inner_cell">
     <div class="input_area">
@@ -2019,7 +2020,7 @@ TClassTable::Add:0: RuntimeWarning: class ROOT::Math::SMatrix&lt;float,7,7,ROOT:
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">
-In&nbsp;[7]:
+In&nbsp;[9]:
 </div>
 <div class="inner_cell">
     <div class="input_area">
@@ -2055,7 +2056,7 @@ In&nbsp;[7]:
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">
-In&nbsp;[8]:
+In&nbsp;[10]:
 </div>
 <div class="inner_cell">
     <div class="input_area">
@@ -2087,7 +2088,7 @@ In&nbsp;[8]:
 </div>
 
 <div class="output_area"><div class="prompt output_prompt">
-    Out[8]:</div>
+    Out[10]:</div>
 
 
 <div class="output_png output_subarea output_pyout">
@@ -2303,7 +2304,7 @@ oQEAACghNAAAACWEBgAAoITQAAAAlBAaAACAEkIDAABQ8v8YRTVTY/3OhQAAAABJRU5ErkJggg==
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">
-In&nbsp;[9]:
+In&nbsp;[11]:
 </div>
 <div class="inner_cell">
     <div class="input_area">
@@ -2319,7 +2320,7 @@ In&nbsp;[9]:
 
 
 <div class="output_area"><div class="prompt output_prompt">
-    Out[9]:</div>
+    Out[11]:</div>
 
 
 <div class="output_png output_subarea output_pyout">
@@ -2510,7 +2511,7 @@ X34GYWbLkS7/AAAAAElFTkSuQmCC
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">
-In&nbsp;[10]:
+In&nbsp;[12]:
 </div>
 <div class="inner_cell">
     <div class="input_area">
@@ -2526,7 +2527,7 @@ In&nbsp;[10]:
 
 
 <div class="output_area"><div class="prompt output_prompt">
-    Out[10]:</div>
+    Out[12]:</div>
 
 
 <div class="output_png output_subarea output_pyout">
@@ -2729,7 +2730,7 @@ QmCC
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">
-In&nbsp;[11]:
+In&nbsp;[13]:
 </div>
 <div class="inner_cell">
     <div class="input_area">
@@ -2745,7 +2746,7 @@ In&nbsp;[11]:
 
 
 <div class="output_area"><div class="prompt output_prompt">
-    Out[11]:</div>
+    Out[13]:</div>
 
 
 <div class="output_png output_subarea output_pyout">
@@ -2892,7 +2893,7 @@ BgAgRGgAAEKEBgAgRGgAAEKEBgAgRGgAAEKEBgAgRGgAAEL+PyQMx+8Wd+RgAAAAAElFTkSuQmCC
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">
-In&nbsp;[12]:
+In&nbsp;[14]:
 </div>
 <div class="inner_cell">
     <div class="input_area">
@@ -2908,7 +2909,7 @@ In&nbsp;[12]:
 
 
 <div class="output_area"><div class="prompt output_prompt">
-    Out[12]:</div>
+    Out[14]:</div>
 
 
 <div class="output_png output_subarea output_pyout">
@@ -3048,7 +3049,7 @@ AEmEBgAgidAAACT5/4/1k1y/dnvoAAAAAElFTkSuQmCC
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
 <div class="prompt input_prompt">
-In&nbsp;[13]:
+In&nbsp;[15]:
 </div>
 <div class="inner_cell">
     <div class="input_area">
@@ -3064,7 +3065,7 @@ In&nbsp;[13]:
 
 
 <div class="output_area"><div class="prompt output_prompt">
-    Out[13]:</div>
+    Out[15]:</div>
 
 
 <div class="output_png output_subarea output_pyout">
@@ -3207,7 +3208,7 @@ AEmEBgAgidAAACT5/4/1k1y/dnvoAAAAAElFTkSuQmCC
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <h1 id="warning-">WARNING!</h1>
-<p>Atomic testing zone</p>
+<p>Death rays &#39;n&#39; stuff ...</p>
 </div>
 </div>
 </div>
@@ -3447,6 +3448,36 @@ array([3, 6, 9])
 
 </div>
 
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">
+In&nbsp;[17]:
+</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class="highlight"><pre> 
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">
+In&nbsp;[17]:
+</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class="highlight"><pre> 
+</pre></div>
+
+</div>
 </div>
 </div>
 
