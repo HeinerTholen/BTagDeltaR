@@ -25,6 +25,14 @@ process.MessageLogger.cerr.FwkReport.reportEvery = 100
 #process.MessageLogger.categories += (["BLA"])
 process.options = cms.untracked.PSet(wantSummary=cms.untracked.bool(True))
 
+# TODO: make producer that writes out labeled doubles for dist3d val/err
+process.bToCharmDecayVertexMergedFilt = cms.EDFilter(
+    'SecVtxFilter',
+    pv_src=cms.InputTag('offlinePrimaryVertices'),
+    sv_src=cms.InputTag('bToCharmDecayVertexMerged'),
+    min_3d_significance=cms.double(5.),
+)
+
 process.twoVtxFilter = cms.EDFilter("VertexCountFilter",
     src=cms.InputTag('inclusiveMergedVerticesFiltered'),
     minNumber=cms.uint32(2),
@@ -32,6 +40,7 @@ process.twoVtxFilter = cms.EDFilter("VertexCountFilter",
 )
 
 process.p = cms.Path(
-    process.twoVtxFilter
+    process.twoVtxFilter *
+    process.bToCharmDecayVertexMergedFilt
 )
 

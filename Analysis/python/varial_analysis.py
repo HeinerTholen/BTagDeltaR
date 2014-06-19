@@ -35,5 +35,6 @@ if __name__ == '__main__':
     varial.main.main(
         samples=samples,
         toolchain=tc,
+        force_reuse_fwlite=True,
         #max_num_processes=1,
     )

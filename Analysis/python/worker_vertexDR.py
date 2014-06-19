@@ -265,7 +265,7 @@ workers = [
     Worker("IvfMerged", "inclusiveMergedVertices"),
     Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
     Worker("IvfB2cMerged", "bToCharmDecayVertexMerged"),
-    #Worker("IvfB2cMerged", "bToCharmDecayVertexMerged", lambda ...),
+    #Worker("IvfB2cMerged", "bToCharmDecayVertexMergedFilt", lambda ...),
 ]
 
 
