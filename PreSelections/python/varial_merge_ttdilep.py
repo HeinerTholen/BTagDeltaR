@@ -62,10 +62,8 @@ def main():
     for sample, files in files.iteritems():
 
         # group with number of files
-        if "TTbar" == sample:
-            groups = itertools.izip(*[iter(files)]*5)
-        else:
-            groups = itertools.izip(*[iter(files)]*25)
+        n = 2 if "TTbar" == sample else 25
+        groups = (files[k:k+n] for k in range(0, len(files), n))
 
         # make samples
         for i, grp in enumerate(groups):

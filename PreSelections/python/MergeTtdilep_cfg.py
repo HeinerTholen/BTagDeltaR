@@ -26,7 +26,7 @@ process.MessageLogger.cerr.FwkReport.reportEvery = 100
 process.options = cms.untracked.PSet(wantSummary=cms.untracked.bool(True))
 
 process.twoVtxFilter = cms.EDFilter("VertexCountFilter",
-    src=cms.InputTag('bToCharmDecayVertexMerged'),
+    src=cms.InputTag('inclusiveMergedVerticesFiltered'),
     minNumber=cms.uint32(2),
     maxNumber=cms.uint32(999)
 )
