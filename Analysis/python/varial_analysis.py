@@ -5,8 +5,9 @@ ROOT.gROOT.SetBatch()
 import varial.main
 import varial.tools
 import varial.settings as s
-import ttdilep_samples
 
+import ttdilep_samples
+import varial_plotters
 
 s.web_target_dir = '/afs/desy.de/user/t/tholenhe/www/btagdr/ana/'
 s.colors = ttdilep_samples.colors
@@ -22,7 +23,9 @@ tc = varial.tools.ToolChain(
     "ttdilep_analysis",
     [
         varial.tools.FwliteProxy(),
-        varial.tools.FSStackPlotter(keep_stacks_as_result=True),
+        varial_plotters.chain_ivf_merged,
+        varial_plotters.chain_ivf_merged_filt,
+        varial_plotters.chain_ivf_b2c_merged,
         varial.tools.SimpleWebCreator(),
     ]
 )
@@ -32,5 +35,5 @@ if __name__ == '__main__':
     varial.main.main(
         samples=samples,
         toolchain=tc,
-#        max_num_processes=1,
+        #max_num_processes=1,
     )

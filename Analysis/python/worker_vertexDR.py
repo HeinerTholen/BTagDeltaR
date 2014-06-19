@@ -29,11 +29,12 @@ def get_tuples_with_flight_dirs(vertices, primary_vertex):
 
 
 class Worker(fwliteworker.FwliteWorker):
-    def __init__(self, name, collection):
+    def __init__(self, name, collection, vertex_keyfunc=None):
         super(Worker, self).__init__(name)
         self.collection = collection
         self.result = wrappers.FileServiceWrapper(name=name)
         self.n_matches_required = -1
+        self.vertex_keyfunc = vertex_keyfunc
 
     def node_setup(self, init_wrp):
         if not hasattr(init_wrp, 'announced'):
@@ -162,6 +163,8 @@ class Worker(fwliteworker.FwliteWorker):
         # ivf vertices
         event.getByLabel(self.collection, h_ivf)
         ivf_vtx = h_ivf.product()
+        if self.vertex_keyfunc:
+            ivf_vtx
 
         # flight directions
         event.getByLabel("offlinePrimaryVertices", h_pv)
@@ -181,7 +184,7 @@ class Worker(fwliteworker.FwliteWorker):
         is_real_data = event.eventAuxiliary().isRealData()
         matched = []
         matched_bd = []
-        fin_bs = []
+        fin_b = []
         if not is_real_data:
             event.getByLabel("genParticles", h_genParticles)
             genParticles = h_genParticles.product()
@@ -196,8 +199,10 @@ class Worker(fwliteworker.FwliteWorker):
 
             if len(matched) == 1:
                 # try to match D hadron as well
-                fin_d = final_d_hadrons(get_all_daughters(genParticles, fin_b))
-                fin_bd = fin_b + fin_d
+                fin_b_match = matched[0][1]
+                fin_d = final_d_hadrons(get_all_daughters(
+                    genParticles, [fin_b_match]))
+                fin_bd = [fin_b_match] + fin_d
                 matched_bd = matching(
                     ivf_vtx_fd_max2,
                     fin_bd,
@@ -206,10 +211,10 @@ class Worker(fwliteworker.FwliteWorker):
                 )
 
                 # discard, if b not present anymore, else sort b to front
-                if matched[0][1] not in (gp for _, gp, _ in matched_bd):
+                if fin_b_match not in (gp for _, gp, _ in matched_bd):
                     matched_bd = []
                 elif 2 == len(matched_bd):
-                    if matched_bd[0][1] != matched[0][1]:
+                    if matched_bd[0][1] != fin_b_match:
                         dee, bee = matched_bd
                         matched_bd = bee, dee
 
@@ -226,7 +231,7 @@ class Worker(fwliteworker.FwliteWorker):
         for vtx, fd in ivf_vtx_fd:
             fs.DrMomentumFlightdir.Fill(deltaR_vec_to_vec(fd, vtx.p4()))
         if not is_real_data:
-            fs.NumFinalBs.Fill(len(fin_bs))
+            fs.NumFinalBs.Fill(len(fin_b))
             for a, b in ivf_vtx_fd:
                 self.vtx_dr_mom_fd_histos[n_matched].Fill(
                     deltaR_vec_to_vec(a.p4(), b)
@@ -260,6 +265,7 @@ workers = [
     Worker("IvfMerged", "inclusiveMergedVertices"),
     Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
     Worker("IvfB2cMerged", "bToCharmDecayVertexMerged"),
+    #Worker("IvfB2cMerged", "bToCharmDecayVertexMerged", lambda ...),
 ]
 
 
