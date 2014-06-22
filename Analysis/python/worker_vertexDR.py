@@ -28,13 +28,21 @@ def get_tuples_with_flight_dirs(vertices, primary_vertex):
     return list((sv, mkfd(sv)) for sv in vertices)
 
 
+class PreWorker(fwliteworker.FwliteWorker):
+    def node_process_event(self, event):
+        is_real_data = event.eventAuxiliary().isRealData()
+        if not is_real_data:
+            event.getByLabel("genParticles", h_genParticles)
+            event.gen_particles = h_genParticles.product()
+            event.fin_b = final_b_hadrons(event.gen_particles)
+
+
 class Worker(fwliteworker.FwliteWorker):
-    def __init__(self, name, collection, vertex_keyfunc=None):
+    def __init__(self, name, collection, filter_vtx=False):
         super(Worker, self).__init__(name)
         self.collection = collection
-        self.result = wrappers.FileServiceWrapper(name=name)
         self.n_matches_required = -1
-        self.vertex_keyfunc = vertex_keyfunc
+        self.filter_vtx = filter_vtx
 
     def node_setup(self, init_wrp):
         if not hasattr(init_wrp, 'announced'):
@@ -78,6 +86,16 @@ class Worker(fwliteworker.FwliteWorker):
             ";number of final B's;number of events",
             8, -.5, 7.5
         )
+        fs.make(
+            "DrFdFinalBs",
+            ";#Delta R; number of events",
+            100, 0., 1.
+        )
+        fs.make(
+            "DrMomFinalBs",
+            ";#Delta R; number of events",
+            100, 0., 1.
+        )
 
         # for B / D vertices
         fs.make(
@@ -93,11 +111,16 @@ class Worker(fwliteworker.FwliteWorker):
         fs.make(
             "VtxBeeMass",
             ";vertex mass;number of vertices",
-            100, 0., 100
+            20, 0., 20
         )
         fs.make(
             "VtxDeeMass",
             ";vertex mass;number of vertices",
+            20, 0., 20
+        )
+        fs.make(
+            "VtxBeeDeeMatchSig",
+            ";#DeltaX for matching B and D;number of vertices",
             100, 0., 100
         )
 
@@ -163,8 +186,15 @@ class Worker(fwliteworker.FwliteWorker):
         # ivf vertices
         event.getByLabel(self.collection, h_ivf)
         ivf_vtx = h_ivf.product()
-        if self.vertex_keyfunc:
-            ivf_vtx
+        if self.filter_vtx:
+            ivf_vtx = filter(
+                lambda v: (
+                    abs(v.p4().eta()) < 2
+                    and v.p4().pt() > 8
+                    and v.p4().mass() > 1.4
+                ),
+                ivf_vtx
+            )
 
         # flight directions
         event.getByLabel("offlinePrimaryVertices", h_pv)
@@ -185,15 +215,16 @@ class Worker(fwliteworker.FwliteWorker):
         matched = []
         matched_bd = []
         fin_b = []
+        fin_bd = []
         if not is_real_data:
-            event.getByLabel("genParticles", h_genParticles)
-            genParticles = h_genParticles.product()
-            fin_b = final_b_hadrons(genParticles)
+            gen_particles = event.gen_particles
+            fin_b = event.fin_b
 
             matched = matching(
                 ivf_vtx_fd_max2,
                 fin_b,
-                lambda a, b: deltaR_vec_to_cand(a[1], b),
+                #lambda a, b: deltaR_vec_to_cand(a[1], b),
+                lambda a, b: deltaR_cand_to_cand(a[0], b),
                 DR_for_matching
             )
 
@@ -201,13 +232,13 @@ class Worker(fwliteworker.FwliteWorker):
                 # try to match D hadron as well
                 fin_b_match = matched[0][1]
                 fin_d = final_d_hadrons(get_all_daughters(
-                    genParticles, [fin_b_match]))
+                    gen_particles, [fin_b_match]))
                 fin_bd = [fin_b_match] + fin_d
                 matched_bd = matching(
                     ivf_vtx_fd_max2,
                     fin_bd,
-                    lambda a, b: covariance_significance(a[0], b),
-                    5.
+                    lambda a, b: deltaR_cand_to_cand(a[0], b),
+                    DR_for_matching
                 )
 
                 # discard, if b not present anymore, else sort b to front
@@ -232,6 +263,18 @@ class Worker(fwliteworker.FwliteWorker):
             fs.DrMomentumFlightdir.Fill(deltaR_vec_to_vec(fd, vtx.p4()))
         if not is_real_data:
             fs.NumFinalBs.Fill(len(fin_b))
+            if len(fin_b) > 1:
+                fs.DrFdFinalBs.Fill(min(
+                    deltaR_vec_to_vec(
+                        mkrtvec(mkvec(a.daughter(0).vertex()) - mkvec(a.vertex())), 
+                        mkrtvec(mkvec(b.daughter(0).vertex()) - mkvec(b.vertex()))
+                    )
+                    for a, b in itertools.combinations(fin_b, 2)
+                ))
+                fs.DrMomFinalBs.Fill(min(
+                    deltaR_cand_to_cand(a, b)
+                    for a, b in itertools.combinations(fin_b, 2)
+                ))
             for a, b in ivf_vtx_fd:
                 self.vtx_dr_mom_fd_histos[n_matched].Fill(
                     deltaR_vec_to_vec(a.p4(), b)
@@ -254,6 +297,16 @@ class Worker(fwliteworker.FwliteWorker):
             fs.VtxBeeMass.Fill(bee.p4().M())
             fs.VtxDeeMass.Fill(dee.p4().M())
 
+            # matching significance
+            matching_bd_cov = matching(
+                ivf_vtx_fd_max2,
+                fin_bd,
+                lambda a, b: covariance_significance(a[0], b),
+                100.
+            )
+            for _, _, sig in matching_bd_cov:
+                fs.MatchSig.Fill(sig)
+
     def node_finalize(self, init_wrp):
         if not hasattr(init_wrp, 'announced2'):
             init_wrp.announced2 = True
@@ -262,10 +315,11 @@ class Worker(fwliteworker.FwliteWorker):
 
 
 workers = [
+    PreWorker("PreWorker"),
     Worker("IvfMerged", "inclusiveMergedVertices"),
     Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
     Worker("IvfB2cMerged", "bToCharmDecayVertexMerged"),
-    #Worker("IvfB2cMerged", "bToCharmDecayVertexMergedFilt", lambda ...),
+    Worker("IvfB2cMergedFilt", "bToCharmDecayVertexMergedFilt", True)
 ]
 
 

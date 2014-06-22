@@ -1,20 +1,32 @@
 import ROOT
 
 from varial.sample import Sample
+from varial import settings
 from glob import glob
 
 
-colors = {
+settings.colors = {
     'Di-boson': ROOT.kYellow,
     'Single top': ROOT.kMagenta,
     'DY + jets': ROOT.kBlue,
     'W + jets': ROOT.kOrange,
     'TTbar': ROOT.kRed,
-    'TTbar (no match)': ROOT.kRed - 9,
-    'TTbar (1 match)': ROOT.kRed - 4,
-    'TTbar (B+D match)': ROOT.kGreen,
-    'TTbar (2 matches)': ROOT.kRed + 1,
+    'TTbar (no match)': ROOT.kRed + 3,
+    'TTbar (1 match)': ROOT.kRed + 1,
+    'TTbar (B+D match)': ROOT.kRed - 4,
+    'TTbar (2 matches)': ROOT.kRed - 9,
 }
+settings.stacking_order = [
+    'Di-boson',
+    'Single top',
+    'DY + jets',
+    'W + jets',
+    'TTbar',
+    'TTbar (no match)',
+    'TTbar (1 match)',
+    'TTbar (B+D match)',
+    'TTbar (2 matches)',
+]
 
 
 class TTDilepEMuSample(Sample):
@@ -22,10 +34,10 @@ class TTDilepEMuSample(Sample):
         filename = kws['name']
         if 'TTbar' in filename:
             filename = 'TTbar'
-        kws['input_files'] = [  #glob(
+        kws['input_files'] = glob(
             '/nfs/dust/cms/user/tholenhe/samples/TTdilep/'
             '%s_*.root' % filename
-        ]  # )
+        )
 
         # with open('_tmp_das_files_%s.txt' % kws['name']) as f:
         #     kws['input_files'] = map(lambda s:
