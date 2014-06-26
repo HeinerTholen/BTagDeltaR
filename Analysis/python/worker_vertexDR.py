@@ -305,7 +305,7 @@ class Worker(fwliteworker.FwliteWorker):
                 100.
             )
             for _, _, sig in matching_bd_cov:
-                fs.MatchSig.Fill(sig)
+                fs.VtxBeeDeeMatchSig.Fill(sig)
 
     def node_finalize(self, init_wrp):
         if not hasattr(init_wrp, 'announced2'):
