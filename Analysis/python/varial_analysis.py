@@ -21,10 +21,11 @@ tc = varial.tools.ToolChain(
     "ttdilep_analysis",
     [
         varial.tools.FwliteProxy(),
-        #varial_plotters.chain_ivf_merged,
+#        varial_plotters.chain_ivf_merged,
         varial_plotters.chain_ivf_merged_filt,
         varial_plotters.chain_ivf_b2c_merged,
         varial_plotters.chain_ivf_b2c_merged_filt,
+#        varial_plotters.chain_ivf_b2c_merged_filt_cov,
         varial.tools.SimpleWebCreator(),
     ]
 )

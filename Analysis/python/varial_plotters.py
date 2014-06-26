@@ -62,6 +62,14 @@ chain_ivf_b2c_merged_filt = varial.tools.ToolChain(
         beedee_plotter,
     ]
 )
+chain_ivf_b2c_merged_filt_cov = varial.tools.ToolChain(
+    'IvfB2cMergedFiltCov', [
+        varial.tools.FSHistoLoader(None, lambda w: 'IvfB2cMergedFiltCov'==w.analyzer),
+        stack_plotter,
+        beedee_plotter,
+    ]
+)
+
 
 
 

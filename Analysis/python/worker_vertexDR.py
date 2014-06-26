@@ -38,11 +38,12 @@ class PreWorker(fwliteworker.FwliteWorker):
 
 
 class Worker(fwliteworker.FwliteWorker):
-    def __init__(self, name, collection, filter_vtx=False):
+    def __init__(self, name, collection, filter_vtx=False, dee_cov_match=False):
         super(Worker, self).__init__(name)
         self.collection = collection
         self.n_matches_required = -1
         self.filter_vtx = filter_vtx
+        self.dee_cov_match = dee_cov_match
 
     def node_setup(self, init_wrp):
         if not hasattr(init_wrp, 'announced'):
@@ -76,7 +77,47 @@ class Worker(fwliteworker.FwliteWorker):
             ";#Delta R;number of vertices",
             100, 0., 1.
         )
-
+        fs.make(
+            "VtxPtLeadMass",
+            ";pt leading vertex: mass; number of events",
+            100, 0., 10.
+        )
+        fs.make(
+            "VtxPtSubLeadMass",
+            ";pt sub leading vertex: mass; number of events",
+            100, 0., 10.
+        )
+        fs.make(
+            "VtxPtLeadPt",
+            ";pt leading vertex: p_T; number of events",
+            100, 0., 500.
+        )
+        fs.make(
+            "VtxPtSubLeadPt",
+            ";pt sub leading vertex: p_T; number of events",
+            100, 0., 500.
+        )
+        fs.make(
+            "VtxPtLeadEta",
+            ";pt leading vertex: #eta; number of events",
+            100, -5., 5.
+        )
+        fs.make(
+            "VtxPtSubLeadEta",
+            ";pt sub leading vertex: #eta; number of events",
+            100, -5., 5.
+        )
+        fs.make(
+            "VtxPtLeadNumTracks",
+            ";pt leading vertex: no. tracks; number of events",
+            11, -.5, 10.5
+        )
+        fs.make(
+            "VtxPtSubLeadNumTracks",
+            ";pt sub leading vertex: no. tracks; number of events",
+            11, -.5, 10.5
+        )
+ 
         # from here on only MC histograms
         if "Run" in init_wrp.sample:
             return
@@ -111,12 +152,12 @@ class Worker(fwliteworker.FwliteWorker):
         fs.make(
             "VtxBeeMass",
             ";vertex mass;number of vertices",
-            20, 0., 20
+            100, 0., 10.
         )
         fs.make(
             "VtxDeeMass",
             ";vertex mass;number of vertices",
-            20, 0., 20
+            100, 0., 10.
         )
         fs.make(
             "VtxBeeDeeMatchSig",
@@ -125,60 +166,60 @@ class Worker(fwliteworker.FwliteWorker):
         )
 
         # DrMomentumFlightdir
-        fs.DrMomentumFlightdirNoMatch = ROOT.TH1D(
-            "DrMomentumFlightdirNoMatch",
-            ";#Delta R;number of vertices",
-            100, 0., 1.
-        )
-        fs.DrMomentumFlightdirOneMatch = ROOT.TH1D(
-            "DrMomentumFlightdirOneMatch",
-            ";#Delta R;number of vertices",
-            100, 0., 1.
-        )
-        fs.DrMomentumFlightdirBDMatch = ROOT.TH1D(
-            "DrMomentumFlightdirOneMatch",
-            ";#Delta R;number of vertices",
-            100, 0., 1.
-        )
-        fs.DrMomentumFlightdirTwoMatch = ROOT.TH1D(
-            "DrMomentumFlightdirTwoMatch",
-            ";#Delta R;number of vertices",
-            100, 0., 1.
-        )
+        #fs.DrMomentumFlightdirNoMatch = ROOT.TH1D(
+        #    "DrMomentumFlightdirNoMatch",
+        #    ";#Delta R;number of vertices",
+        #    100, 0., 1.
+        #)
+        #fs.DrMomentumFlightdirOneMatch = ROOT.TH1D(
+        #    "DrMomentumFlightdirOneMatch",
+        #    ";#Delta R;number of vertices",
+        #    100, 0., 1.
+        #)
+        #fs.DrMomentumFlightdirBDMatch = ROOT.TH1D(
+        #    "DrMomentumFlightdirOneMatch",
+        #    ";#Delta R;number of vertices",
+        #    100, 0., 1.
+        #)
+        #fs.DrMomentumFlightdirTwoMatch = ROOT.TH1D(
+        #    "DrMomentumFlightdirTwoMatch",
+        #    ";#Delta R;number of vertices",
+        #    100, 0., 1.
+        #)
 
-        # VertexDR
-        fs.VertexDRNoMatch = ROOT.TH1D(
-            "VertexDRNoMatch",
-            ";#Delta R;number of events",
-            100, 0., 5.
-        )
-        fs.VertexDROneMatch = ROOT.TH1D(
-            "VertexDROneMatch",
-            ";#Delta R;number of events",
-            100, 0., 5.
-        )
-        fs.VertexDRBDMatch = ROOT.TH1D(
-            "VertexDRBDMatch",
-            ";#Delta R;number of events",
-            100, 0., 5.
-        )
-        fs.VertexDRTwoMatch = ROOT.TH1D(
-            "VertexDRTwoMatch",
-            ";#Delta R;number of events",
-            100, 0., 5.
-        )
-        self.vtx_dr_histos = [
-            fs.VertexDRNoMatch,
-            fs.VertexDROneMatch,
-            fs.VertexDRTwoMatch,
-            fs.VertexDRBDMatch,
-        ]
-        self.vtx_dr_mom_fd_histos = [
-            fs.DrMomentumFlightdirNoMatch,
-            fs.DrMomentumFlightdirOneMatch,
-            fs.DrMomentumFlightdirTwoMatch,
-            fs.DrMomentumFlightdirBDMatch,
-        ]
+        ## VertexDR
+        #fs.VertexDRNoMatch = ROOT.TH1D(
+        #    "VertexDRNoMatch",
+        #    ";#Delta R;number of events",
+        #    100, 0., 5.
+        #)
+        #fs.VertexDROneMatch = ROOT.TH1D(
+        #    "VertexDROneMatch",
+        #    ";#Delta R;number of events",
+        #    100, 0., 5.
+        #)
+        #fs.VertexDRBDMatch = ROOT.TH1D(
+        #    "VertexDRBDMatch",
+        #    ";#Delta R;number of events",
+        #    100, 0., 5.
+        #)
+        #fs.VertexDRTwoMatch = ROOT.TH1D(
+        #    "VertexDRTwoMatch",
+        #    ";#Delta R;number of events",
+        #    100, 0., 5.
+        #)
+        #self.vtx_dr_histos = [
+        #    fs.VertexDRNoMatch,
+        #    fs.VertexDROneMatch,
+        #    fs.VertexDRTwoMatch,
+        #    fs.VertexDRBDMatch,
+        #]
+        #self.vtx_dr_mom_fd_histos = [
+        #    fs.DrMomentumFlightdirNoMatch,
+        #    fs.DrMomentumFlightdirOneMatch,
+        #    fs.DrMomentumFlightdirTwoMatch,
+        #    fs.DrMomentumFlightdirBDMatch,
+        #]
 
     def node_process_event(self, event):
         fs = self.result
@@ -191,10 +232,12 @@ class Worker(fwliteworker.FwliteWorker):
                 lambda v: (
                     abs(v.p4().eta()) < 2
                     and v.p4().pt() > 8
-                    and v.p4().mass() > 1.4
+                    and 6.5 > v.p4().mass() > 1.4
+                    and v.nTracks() > 2
                 ),
                 ivf_vtx
             )
+        ivf_vtx_pt_sort = sorted(ivf_vtx, key=lambda v: -v.p4().pt())
 
         # flight directions
         event.getByLabel("offlinePrimaryVertices", h_pv)
@@ -234,12 +277,20 @@ class Worker(fwliteworker.FwliteWorker):
                 fin_d = final_d_hadrons(get_all_daughters(
                     gen_particles, [fin_b_match]))
                 fin_bd = [fin_b_match] + fin_d
-                matched_bd = matching(
-                    ivf_vtx_fd_max2,
-                    fin_bd,
-                    lambda a, b: deltaR_cand_to_cand(a[0], b),
-                    DR_for_matching
-                )
+                if self.dee_cov_match:
+                    matched_bd = matching(
+                        ivf_vtx_fd_max2,
+                        fin_bd,
+                        lambda a, b: covariance_significance(a[0], b),
+                        10.
+                    )
+                else:
+                    matched_bd = matching(
+                        ivf_vtx_fd_max2,
+                        fin_bd,
+                        lambda a, b: deltaR_cand_to_cand(a[0], b),
+                        DR_for_matching
+                    )
 
                 # discard, if b not present anymore, else sort b to front
                 if fin_b_match not in (gp for _, gp, _ in matched_bd):
@@ -259,6 +310,17 @@ class Worker(fwliteworker.FwliteWorker):
 
         # fill histograms
         fs.NumIvfVertices.Fill(len(ivf_vtx_fd))
+        if ivf_vtx_pt_sort:
+            fs.VtxPtLeadMass.Fill(ivf_vtx_pt_sort[0].p4().mass())
+            fs.VtxPtLeadPt.Fill(ivf_vtx_pt_sort[0].p4().pt())
+            fs.VtxPtLeadEta.Fill(ivf_vtx_pt_sort[0].p4().eta())
+            fs.VtxPtLeadNumTracks.Fill(ivf_vtx_pt_sort[0].nTracks())
+        if len(ivf_vtx_pt_sort) > 1:
+            fs.VtxPtSubLeadMass.Fill(ivf_vtx_pt_sort[1].p4().mass())
+            fs.VtxPtSubLeadPt.Fill(ivf_vtx_pt_sort[1].p4().pt())
+            fs.VtxPtSubLeadEta.Fill(ivf_vtx_pt_sort[1].p4().eta())
+            fs.VtxPtSubLeadNumTracks.Fill(ivf_vtx_pt_sort[1].nTracks())
+
         for vtx, fd in ivf_vtx_fd:
             fs.DrMomentumFlightdir.Fill(deltaR_vec_to_vec(fd, vtx.p4()))
         if not is_real_data:
@@ -275,17 +337,17 @@ class Worker(fwliteworker.FwliteWorker):
                     deltaR_cand_to_cand(a, b)
                     for a, b in itertools.combinations(fin_b, 2)
                 ))
-            for a, b in ivf_vtx_fd:
-                self.vtx_dr_mom_fd_histos[n_matched].Fill(
-                    deltaR_vec_to_vec(a.p4(), b)
-                )
+            #for a, b in ivf_vtx_fd:
+            #    self.vtx_dr_mom_fd_histos[n_matched].Fill(
+            #        deltaR_vec_to_vec(a.p4(), b)
+            #    )
 
         # dr (needs two vertices)
         if len(ivf_vtx_fd_max2) == 2:
             dr = fd_dr(*ivf_vtx_fd_max2)
             fs.VertexDR.Fill(dr)
-            if not is_real_data:
-                self.vtx_dr_histos[n_matched].Fill(dr)
+            #if not is_real_data:
+            #    self.vtx_dr_histos[n_matched].Fill(dr)
 
         # fill B / D vertex histos if in bd mode:
         if 3 == n_matched:
@@ -316,10 +378,11 @@ class Worker(fwliteworker.FwliteWorker):
 
 workers = [
     PreWorker("PreWorker"),
-    Worker("IvfMerged", "inclusiveMergedVertices"),
+    #Worker("IvfMerged", "inclusiveMergedVertices"),
     Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
     Worker("IvfB2cMerged", "bToCharmDecayVertexMerged"),
-    Worker("IvfB2cMergedFilt", "bToCharmDecayVertexMergedFilt", True)
+    Worker("IvfB2cMergedFilt", "bToCharmDecayVertexMergedFilt", True),
+    #Worker("IvfB2cMergedFiltCov", "bToCharmDecayVertexMergedFilt", True, True),
 ]
 
 
