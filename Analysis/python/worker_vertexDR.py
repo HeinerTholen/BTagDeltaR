@@ -323,7 +323,6 @@ class Worker(fwliteworker.FwliteWorker):
 
         ################################################### fill histograms ###
         w = event.weight
-        fs.EventWeight.Fill(w)
         fs.NumIvfVertices.Fill(len(ivf_vtx_fd), w)
 
         if ivf_vtx_fd_pt_sort:
@@ -341,25 +340,6 @@ class Worker(fwliteworker.FwliteWorker):
 
         for vtx, fd in ivf_vtx_fd:
             fs.DrMomentumFlightdir.Fill(deltaR_vec_to_vec(fd, vtx.p4()), w)
-        if not is_real_data:
-            fin_b = filter(lambda b: b.p4().pt() > 15. and abs(b.p4().eta()) < 2.1, fin_b)
-            fs.NumFinalBs.Fill(len(fin_b), w)
-            if len(fin_b) > 1:
-                fs.DrFdFinalBs.Fill(min(
-                    deltaR_vec_to_vec(
-                        mkrtvec(mkvec(a.daughter(0).vertex()) - mkvec(a.vertex())), 
-                        mkrtvec(mkvec(b.daughter(0).vertex()) - mkvec(b.vertex()))
-                    )
-                    for a, b in itertools.combinations(fin_b, 2)
-                ))
-                fs.DrMomFinalBs.Fill(min(
-                    deltaR_cand_to_cand(a, b)
-                    for a, b in itertools.combinations(fin_b, 2)
-                ))
-            #for a, b in ivf_vtx_fd:
-            #    self.vtx_dr_mom_fd_histos[n_matched].Fill(
-            #        deltaR_vec_to_vec(a.p4(), b)
-            #    )
 
         # dr (needs two vertices)
         if len(ivf_vtx_fd_max2) == 2:
@@ -377,8 +357,24 @@ class Worker(fwliteworker.FwliteWorker):
                 ivf_vtx_fd_max2[1][0].p4().eta(),
                 ivf_vtx_fd_max2[1][1].eta()
             )
-            #if not is_real_data:
-            #    self.vtx_dr_histos[n_matched].Fill(dr, w)
+
+        ######################################################### MC histos ###
+        if not is_real_data:
+            fs.EventWeight.Fill(w)
+            fin_b = filter(lambda b: b.p4().pt() > 15. and abs(b.p4().eta()) < 2.1, fin_b)
+            fs.NumFinalBs.Fill(len(fin_b), w)
+            if len(fin_b) > 1:
+                fs.DrFdFinalBs.Fill(min(
+                    deltaR_vec_to_vec(
+                        mkrtvec(mkvec(a.daughter(0).vertex()) - mkvec(a.vertex())), 
+                        mkrtvec(mkvec(b.daughter(0).vertex()) - mkvec(b.vertex()))
+                    )
+                    for a, b in itertools.combinations(fin_b, 2)
+                ))
+                fs.DrMomFinalBs.Fill(min(
+                    deltaR_cand_to_cand(a, b)
+                    for a, b in itertools.combinations(fin_b, 2)
+                ))
 
         # fill B / D vertex histos if in bd mode:
         if 3 == n_matched:
