@@ -15,23 +15,26 @@ class VtxBeeDeePlotter(varial.tools.FSPlotter):
         wrps = sorted(wrps, key=lambda w: w.name[-5:])
         wrps = varial.generators.group(wrps, lambda w: w.name[-5:])
         self.stream_content = wrps
-
-
 beedee_plotter = VtxBeeDeePlotter()
-num_track_plotter = VtxBeeDeePlotter(
-    'VtxNumTracks',
-    input_result_path='../FSHistoLoader',
-    search_string='eeNumTracks'
-)
+
+
 stack_plotter = varial.tools.FSPlotter(
+    "ControlPlots",
     input_result_path='../FSHistoLoader',
     filter_keyfunc=lambda w: w.name in [
+        'VertexMomDR',
         'VertexDR',
         'NumIvfVertices',
         'DrMomentumFlightdir',
         'VertexDRTwoMatch',
         'NumFinalBs',
-    ]
+        'DrFdFinalBs',
+        'DrMomFinalBs',
+        'VertexDrFdMomDiff',
+        'EventWeight',
+    ] 
+    or 'VtxPtLead' in w.name
+    or 'VtxPtSubLead' in w.name
 )
 
 chain_ivf_merged = varial.tools.ToolChain(

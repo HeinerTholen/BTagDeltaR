@@ -10,9 +10,14 @@ from DataFormats.FWLite import Events, Handle
 
 # parameters / handles
 DR_for_matching = 0.1
-h_genParticles = Handle("vector<reco::GenParticle>")
+h_gen_particles = Handle("vector<reco::GenParticle>")
+h_pu_weight = Handle("double")
 h_pv = Handle("vector<reco::Vertex>")
 h_ivf = Handle("vector<reco::Vertex>")
+h_ivf_dxy_val = Handle("vector<double>")
+h_ivf_dxy_err = Handle("vector<double>")
+h_ivf_dxyz_val = Handle("vector<double>")
+h_ivf_dxyz_err = Handle("vector<double>")
 fd_dr = lambda a, b: deltaR_vec_to_vec(a[1], b[1])
 
 
@@ -31,10 +36,14 @@ def get_tuples_with_flight_dirs(vertices, primary_vertex):
 class PreWorker(fwliteworker.FwliteWorker):
     def node_process_event(self, event):
         is_real_data = event.eventAuxiliary().isRealData()
+        event.weight = 1.
         if not is_real_data:
-            event.getByLabel("genParticles", h_genParticles)
-            event.gen_particles = h_genParticles.product()
+            event.getByLabel("genParticles", h_gen_particles)
+            event.gen_particles = h_gen_particles.product()
             event.fin_b = final_b_hadrons(event.gen_particles)
+
+            event.getByLabel("puWeight", "PUWeightTrue", h_pu_weight)
+            event.weight *= h_pu_weight.product()[0]
 
 
 class Worker(fwliteworker.FwliteWorker):
@@ -67,15 +76,37 @@ class Worker(fwliteworker.FwliteWorker):
             ";number of IVF vertices;number of events",
             8, -.5, 7.5
         )
-        fs.VertexDR = ROOT.TH1D(
+        fs.make(
             "VertexDR",
             ";#Delta R;number of events",
             100, 0., 5.
         )
-        fs.DrMomentumFlightdir = ROOT.TH1D(
+        fs.make(
+            "VertexMomDR",
+            ";#Delta R;number of events",
+            100, 0., 5.
+        )
+        fs.make(
+            "VertexDrFdMomDiff",
+            ";#Delta R difference (DRFD - DRMom);number of events",
+            100, -5., .5
+        )
+        fs.make(
             "DrMomentumFlightdir",
             ";#Delta R;number of vertices",
             100, 0., 1.
+        )
+        fs.VertexDrFdVsMom = ROOT.TH2D(
+            "VertexDrFdVsMom",
+            ";Momentum #Delta R; Flight Direction #Delta R",
+            100, 0., 5.,
+            100, 0., 5.,
+        )
+        fs.VertexEtaFdVsMom = ROOT.TH2D(
+            "VertexEtaFdVsMom",
+            ";Momentum #Delta R; Flight Direction #Delta R",
+            100, -2.5, 2.5,
+            100, -2.5, 2.5
         )
         fs.make(
             "VtxPtLeadMass",
@@ -89,23 +120,33 @@ class Worker(fwliteworker.FwliteWorker):
         )
         fs.make(
             "VtxPtLeadPt",
-            ";pt leading vertex: p_T; number of events",
+            ";pt leading vertex: p_{T}; number of events",
             100, 0., 500.
         )
         fs.make(
             "VtxPtSubLeadPt",
-            ";pt sub leading vertex: p_T; number of events",
+            ";pt sub leading vertex: p_{T}; number of events",
             100, 0., 500.
         )
         fs.make(
             "VtxPtLeadEta",
-            ";pt leading vertex: #eta; number of events",
-            100, -5., 5.
+            ";pt leading vertex: momentum #eta; number of events",
+            100, -2.5, 2.5
         )
         fs.make(
             "VtxPtSubLeadEta",
-            ";pt sub leading vertex: #eta; number of events",
-            100, -5., 5.
+            ";pt sub leading vertex: momentum #eta; number of events",
+            100, -2.5, 2.5
+        )
+        fs.make(
+            "VtxPtLeadFdEta",
+            ";pt leading vertex: flight direction #eta; number of events",
+            100, -2.5, 2.5
+        )
+        fs.make(
+            "VtxPtSubLeadFdEta",
+            ";pt sub leading vertex: flight direction #eta; number of events",
+            100, -2.5, 2.5
         )
         fs.make(
             "VtxPtLeadNumTracks",
@@ -122,7 +163,12 @@ class Worker(fwliteworker.FwliteWorker):
         if "Run" in init_wrp.sample:
             return
 
-        fs.NumFinalBs = ROOT.TH1D(
+        fs.make(
+            "EventWeight",
+            ";MC event weight;number of events",
+            100, -5., 5.
+        )
+        fs.make(
             "NumFinalBs",
             ";number of final B's;number of events",
             8, -.5, 7.5
@@ -130,12 +176,12 @@ class Worker(fwliteworker.FwliteWorker):
         fs.make(
             "DrFdFinalBs",
             ";#Delta R; number of events",
-            100, 0., 1.
+            100, 0., 5.
         )
         fs.make(
             "DrMomFinalBs",
             ";#Delta R; number of events",
-            100, 0., 1.
+            100, 0., 5.
         )
 
         # for B / D vertices
@@ -165,62 +211,6 @@ class Worker(fwliteworker.FwliteWorker):
             100, 0., 100
         )
 
-        # DrMomentumFlightdir
-        #fs.DrMomentumFlightdirNoMatch = ROOT.TH1D(
-        #    "DrMomentumFlightdirNoMatch",
-        #    ";#Delta R;number of vertices",
-        #    100, 0., 1.
-        #)
-        #fs.DrMomentumFlightdirOneMatch = ROOT.TH1D(
-        #    "DrMomentumFlightdirOneMatch",
-        #    ";#Delta R;number of vertices",
-        #    100, 0., 1.
-        #)
-        #fs.DrMomentumFlightdirBDMatch = ROOT.TH1D(
-        #    "DrMomentumFlightdirOneMatch",
-        #    ";#Delta R;number of vertices",
-        #    100, 0., 1.
-        #)
-        #fs.DrMomentumFlightdirTwoMatch = ROOT.TH1D(
-        #    "DrMomentumFlightdirTwoMatch",
-        #    ";#Delta R;number of vertices",
-        #    100, 0., 1.
-        #)
-
-        ## VertexDR
-        #fs.VertexDRNoMatch = ROOT.TH1D(
-        #    "VertexDRNoMatch",
-        #    ";#Delta R;number of events",
-        #    100, 0., 5.
-        #)
-        #fs.VertexDROneMatch = ROOT.TH1D(
-        #    "VertexDROneMatch",
-        #    ";#Delta R;number of events",
-        #    100, 0., 5.
-        #)
-        #fs.VertexDRBDMatch = ROOT.TH1D(
-        #    "VertexDRBDMatch",
-        #    ";#Delta R;number of events",
-        #    100, 0., 5.
-        #)
-        #fs.VertexDRTwoMatch = ROOT.TH1D(
-        #    "VertexDRTwoMatch",
-        #    ";#Delta R;number of events",
-        #    100, 0., 5.
-        #)
-        #self.vtx_dr_histos = [
-        #    fs.VertexDRNoMatch,
-        #    fs.VertexDROneMatch,
-        #    fs.VertexDRTwoMatch,
-        #    fs.VertexDRBDMatch,
-        #]
-        #self.vtx_dr_mom_fd_histos = [
-        #    fs.DrMomentumFlightdirNoMatch,
-        #    fs.DrMomentumFlightdirOneMatch,
-        #    fs.DrMomentumFlightdirTwoMatch,
-        #    fs.DrMomentumFlightdirBDMatch,
-        #]
-
     def node_process_event(self, event):
         fs = self.result
 
@@ -228,22 +218,45 @@ class Worker(fwliteworker.FwliteWorker):
         event.getByLabel(self.collection, h_ivf)
         ivf_vtx = h_ivf.product()
         if self.filter_vtx:
-            ivf_vtx = filter(
-                lambda v: (
-                    abs(v.p4().eta()) < 2
-                    and v.p4().pt() > 8
-                    and 6.5 > v.p4().mass() > 1.4
-                    and v.nTracks() > 2
-                ),
-                ivf_vtx
-            )
-        ivf_vtx_pt_sort = sorted(ivf_vtx, key=lambda v: -v.p4().pt())
+            coll = 'bToCharmDecayVertexMergedDistInfo'
+            event.getByLabel(coll, 'DxyVal', h_ivf_dxy_val)
+            event.getByLabel(coll, 'DxyErr', h_ivf_dxy_err)
+            event.getByLabel(coll, 'DxyzVal', h_ivf_dxyz_val)
+            event.getByLabel(coll, 'DxyzErr', h_ivf_dxyz_err)
+            ivf_vtx = list(ivf_vtx)
+            for vtx, xy_v, xy_e, xyz_v, xyz_e in itertools.izip(
+                ivf_vtx,
+                h_ivf_dxy_val.product(),
+                h_ivf_dxy_err.product(),
+                h_ivf_dxyz_val.product(),
+                h_ivf_dxyz_err.product(),
+            ):
+                vtx.dxy_val = xy_v
+                vtx.dxy_err = xy_e
+                vtx.dxyz_val = xyz_v
+                vtx.dxyz_err = xyz_e
 
         # flight directions
         event.getByLabel("offlinePrimaryVertices", h_pv)
         ivf_vtx_fd = get_tuples_with_flight_dirs(
             ivf_vtx, h_pv.product()[0]
         )
+        if self.filter_vtx:
+            ivf_vtx_fd = filter(
+                lambda v: (
+                    abs(v[0].p4().eta()) < 2
+                    and v[0].p4().pt() > 8
+                    and 6.5 > v[0].p4().mass() > 1.4
+                    and v[0].nTracks() > 2
+                    and deltaR_vec_to_vec(v[1], v[0].p4()) < 0.1
+                    and v[0].dxy_val < 2.5
+                    and (v[0].dxy_val / v[0].dxy_err) > 3.
+                    and (v[0].dxyz_val / v[0].dxyz_err) > 5.
+                ),
+                ivf_vtx_fd
+            )
+
+        ivf_vtx_fd_pt_sort = sorted(ivf_vtx_fd, key=lambda v: -v[0].p4().pt())
 
         # if more than two ivf vtx, take the ones closest together
         ivf_vtx_fd_max2 = ivf_vtx_fd
@@ -308,23 +321,29 @@ class Worker(fwliteworker.FwliteWorker):
         if self.n_matches_required not in (-1, n_matched):
             return
 
-        # fill histograms
-        fs.NumIvfVertices.Fill(len(ivf_vtx_fd))
-        if ivf_vtx_pt_sort:
-            fs.VtxPtLeadMass.Fill(ivf_vtx_pt_sort[0].p4().mass())
-            fs.VtxPtLeadPt.Fill(ivf_vtx_pt_sort[0].p4().pt())
-            fs.VtxPtLeadEta.Fill(ivf_vtx_pt_sort[0].p4().eta())
-            fs.VtxPtLeadNumTracks.Fill(ivf_vtx_pt_sort[0].nTracks())
-        if len(ivf_vtx_pt_sort) > 1:
-            fs.VtxPtSubLeadMass.Fill(ivf_vtx_pt_sort[1].p4().mass())
-            fs.VtxPtSubLeadPt.Fill(ivf_vtx_pt_sort[1].p4().pt())
-            fs.VtxPtSubLeadEta.Fill(ivf_vtx_pt_sort[1].p4().eta())
-            fs.VtxPtSubLeadNumTracks.Fill(ivf_vtx_pt_sort[1].nTracks())
+        ################################################### fill histograms ###
+        w = event.weight
+        fs.EventWeight.Fill(w)
+        fs.NumIvfVertices.Fill(len(ivf_vtx_fd), w)
+
+        if ivf_vtx_fd_pt_sort:
+            fs.VtxPtLeadMass.Fill(ivf_vtx_fd_pt_sort[0][0].p4().mass(), w)
+            fs.VtxPtLeadPt.Fill(ivf_vtx_fd_pt_sort[0][0].p4().pt(), w)
+            fs.VtxPtLeadEta.Fill(ivf_vtx_fd_pt_sort[0][0].p4().eta(), w)
+            fs.VtxPtLeadFdEta.Fill(ivf_vtx_fd_pt_sort[0][1].eta(), w)
+            fs.VtxPtLeadNumTracks.Fill(ivf_vtx_fd_pt_sort[0][0].nTracks(), w)
+        if len(ivf_vtx_fd_pt_sort) > 1:
+            fs.VtxPtSubLeadMass.Fill(ivf_vtx_fd_pt_sort[1][0].p4().mass(), w)
+            fs.VtxPtSubLeadPt.Fill(ivf_vtx_fd_pt_sort[1][0].p4().pt(), w)
+            fs.VtxPtSubLeadEta.Fill(ivf_vtx_fd_pt_sort[1][0].p4().eta(), w)
+            fs.VtxPtSubLeadFdEta.Fill(ivf_vtx_fd_pt_sort[1][1].eta(), w)
+            fs.VtxPtSubLeadNumTracks.Fill(ivf_vtx_fd_pt_sort[1][0].nTracks(), w)
 
         for vtx, fd in ivf_vtx_fd:
-            fs.DrMomentumFlightdir.Fill(deltaR_vec_to_vec(fd, vtx.p4()))
+            fs.DrMomentumFlightdir.Fill(deltaR_vec_to_vec(fd, vtx.p4()), w)
         if not is_real_data:
-            fs.NumFinalBs.Fill(len(fin_b))
+            fin_b = filter(lambda b: b.p4().pt() > 15. and abs(b.p4().eta()) < 2.1, fin_b)
+            fs.NumFinalBs.Fill(len(fin_b), w)
             if len(fin_b) > 1:
                 fs.DrFdFinalBs.Fill(min(
                     deltaR_vec_to_vec(
@@ -344,20 +363,32 @@ class Worker(fwliteworker.FwliteWorker):
 
         # dr (needs two vertices)
         if len(ivf_vtx_fd_max2) == 2:
-            dr = fd_dr(*ivf_vtx_fd_max2)
-            fs.VertexDR.Fill(dr)
+            dr_fd = fd_dr(*ivf_vtx_fd_max2)
+            dr_mom = deltaR_cand_to_cand(ivf_vtx_fd_max2[0][0], ivf_vtx_fd_max2[1][0])
+            fs.VertexDR.Fill(dr_fd, w)
+            fs.VertexMomDR.Fill(dr_mom, w)
+            fs.VertexDrFdMomDiff.Fill(dr_fd - dr_mom, w)
+            fs.VertexDrFdVsMom.Fill(dr_mom, dr_fd, w)
+            fs.VertexEtaFdVsMom.Fill(
+                ivf_vtx_fd_max2[0][0].p4().eta(),
+                ivf_vtx_fd_max2[0][1].eta()
+            )
+            fs.VertexEtaFdVsMom.Fill(
+                ivf_vtx_fd_max2[1][0].p4().eta(),
+                ivf_vtx_fd_max2[1][1].eta()
+            )
             #if not is_real_data:
-            #    self.vtx_dr_histos[n_matched].Fill(dr)
+            #    self.vtx_dr_histos[n_matched].Fill(dr, w)
 
         # fill B / D vertex histos if in bd mode:
         if 3 == n_matched:
             bee, dee = matched_bd
             bee = bee[0][0]
             dee = dee[0][0]
-            fs.VtxBeeNumTracks.Fill(bee.nTracks())
-            fs.VtxDeeNumTracks.Fill(dee.nTracks())
-            fs.VtxBeeMass.Fill(bee.p4().M())
-            fs.VtxDeeMass.Fill(dee.p4().M())
+            fs.VtxBeeNumTracks.Fill(bee.nTracks(), w)
+            fs.VtxDeeNumTracks.Fill(dee.nTracks(), w)
+            fs.VtxBeeMass.Fill(bee.p4().M(), w)
+            fs.VtxDeeMass.Fill(dee.p4().M(), w)
 
             # matching significance
             matching_bd_cov = matching(
@@ -367,7 +398,7 @@ class Worker(fwliteworker.FwliteWorker):
                 100.
             )
             for _, _, sig in matching_bd_cov:
-                fs.VtxBeeDeeMatchSig.Fill(sig)
+                fs.VtxBeeDeeMatchSig.Fill(sig, w)
 
     def node_finalize(self, init_wrp):
         if not hasattr(init_wrp, 'announced2'):
@@ -379,12 +410,14 @@ class Worker(fwliteworker.FwliteWorker):
 workers = [
     PreWorker("PreWorker"),
     #Worker("IvfMerged", "inclusiveMergedVertices"),
-    Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
+    #Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
     Worker("IvfB2cMerged", "bToCharmDecayVertexMerged"),
-    Worker("IvfB2cMergedFilt", "bToCharmDecayVertexMergedFilt", True),
+    Worker("IvfB2cMergedFilt", "bToCharmDecayVertexMerged", True),
     #Worker("IvfB2cMergedFiltCov", "bToCharmDecayVertexMergedFilt", True, True),
 ]
 
 
 if __name__ == '__main__':
     fwliteworker.work(workers)
+
+

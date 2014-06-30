@@ -13,7 +13,9 @@ process.out = cms.OutputModule("PoolOutputModule",
     outputCommands=cms.untracked.vstring(
         'drop *',
         'keep *_genParticles_*_*',
-        'keep *Vertex*_*_*_*'
+        'keep *Vertex*_*_*_*',
+        'keep *_*DistInfo_*_*',
+        'keep *_*Weight*_*_*',
     ),
     fileName=cms.untracked.string('merging.root'),
     SelectEvents=cms.untracked.PSet(SelectEvents=cms.vstring('p')),
@@ -25,12 +27,12 @@ process.MessageLogger.cerr.FwkReport.reportEvery = 100
 #process.MessageLogger.categories += (["BLA"])
 process.options = cms.untracked.PSet(wantSummary=cms.untracked.bool(True))
 
-# TODO: make producer that writes out labeled doubles for dist3d val/err
-process.bToCharmDecayVertexMergedFilt = cms.EDFilter(
-    'SecVtxFilter',
+process.load("MyUtility.EvtWeightPU.evtWeightPU_cff")
+
+process.bToCharmDecayVertexMergedDistInfo = cms.EDProducer(
+    'SecVtxInfoProducer',
     pv_src=cms.InputTag('offlinePrimaryVertices'),
     sv_src=cms.InputTag('bToCharmDecayVertexMerged'),
-    min_3d_significance=cms.double(5.),
 )
 
 process.twoVtxFilter = cms.EDFilter("VertexCountFilter",
@@ -41,6 +43,7 @@ process.twoVtxFilter = cms.EDFilter("VertexCountFilter",
 
 process.p = cms.Path(
     process.twoVtxFilter *
-    process.bToCharmDecayVertexMergedFilt
+    process.bToCharmDecayVertexMergedDistInfo *
+    process.puWeight
 )
 

@@ -83,7 +83,7 @@ def main():
         samples=samples,
         cmsRun_use_file_service=False,
         cmsRun_main_import_path="BTagDeltaR.PreSelections.MergeTtdilep_cfg",
-        max_num_processes=12,
+        max_num_processes=8
     )
 
 
