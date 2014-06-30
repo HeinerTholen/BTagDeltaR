@@ -1,5 +1,35 @@
 import itertools
 import varial.tools
+import varial.generators as gen
+
+
+class DaNormalizer(varial.tools.Tool):
+    """Normalize MC cross sections by center of DR distribution. """
+    def get_histos_n_factor(self):
+        mcee, data = next(gen.fs_mc_stack_n_data_sum(
+            lambda w: w.name=='VertexMomDR' and w.analyzer=='IvfB2cMergedFilt'
+        ))
+        factor = data.histo.Integral(1.5, 3.5) / mcee.histo.Integral(1.5, 3.5)
+        canv = next(gen.canvas(
+            ((mcee, data),),
+            varial.tools.FSPlotter.defaults_attrs['canvas_decorators']
+        ))
+        return factor, canv
+
+    def run(self):
+
+        # before
+        factor, canv = self.get_histos_n_factor()
+        self.io.write(canv, 'before')
+
+        # alter samples
+        for s in varial.analysis.mc_samples().itervalues():
+            s.lumi *= factor
+            s.x_sec *= factor
+
+        # after
+        _, canv = self.get_histos_n_factor()
+        self.io.write(canv, 'after')
 
 
 class VtxBeeDeePlotter(varial.tools.FSPlotter):
@@ -10,10 +40,10 @@ class VtxBeeDeePlotter(varial.tools.FSPlotter):
             lambda w: ('ee' in w.name or 'MatchSig' == w.name) and 'TTbarBDMatch'==w.sample,
             wrps
         )
-        wrps = varial.generators.apply_histo_linecolor(
+        wrps = gen.apply_histo_linecolor(
             wrps, varial.settings.default_colors)
         wrps = sorted(wrps, key=lambda w: w.name[-5:])
-        wrps = varial.generators.group(wrps, lambda w: w.name[-5:])
+        wrps = gen.group(wrps, lambda w: w.name[-5:])
         self.stream_content = wrps
 beedee_plotter = VtxBeeDeePlotter()
 
