@@ -29,12 +29,6 @@ process.options = cms.untracked.PSet(wantSummary=cms.untracked.bool(True))
 
 process.load("MyUtility.EvtWeightPU.evtWeightPU_cff")
 
-process.bToCharmDecayVertexMergedDistInfo = cms.EDProducer(
-    'SecVtxInfoProducer',
-    pv_src=cms.InputTag('offlinePrimaryVertices'),
-    sv_src=cms.InputTag('bToCharmDecayVertexMerged'),
-)
-
 process.twoVtxFilter = cms.EDFilter("VertexCountFilter",
     src=cms.InputTag('inclusiveMergedVerticesFiltered'),
     minNumber=cms.uint32(2),
@@ -43,7 +37,6 @@ process.twoVtxFilter = cms.EDFilter("VertexCountFilter",
 
 process.p = cms.Path(
     process.twoVtxFilter *
-    process.bToCharmDecayVertexMergedDistInfo *
     process.puWeight
 )
 

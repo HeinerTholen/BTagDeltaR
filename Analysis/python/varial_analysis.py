@@ -23,7 +23,7 @@ tc = varial.tools.ToolChain(
         varial.tools.FwliteProxy(),
         varial_plotters.DaNormalizer(),
 #        varial_plotters.chain_ivf_merged,
-#        varial_plotters.chain_ivf_merged_filt,
+        varial_plotters.chain_ivf_merged_filt,
         varial_plotters.chain_ivf_b2c_merged,
         varial_plotters.chain_ivf_b2c_merged_filt,
 #        varial_plotters.chain_ivf_b2c_merged_filt_cov,

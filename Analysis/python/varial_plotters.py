@@ -53,7 +53,7 @@ stack_plotter = varial.tools.FSPlotter(
     input_result_path='../FSHistoLoader',
     filter_keyfunc=lambda w: w.name in [
         'VertexMomDR',
-        'VertexDR',
+        'VertexFdDR',
         'NumIvfVertices',
         'DrMomentumFlightdir',
         'VertexDRTwoMatch',

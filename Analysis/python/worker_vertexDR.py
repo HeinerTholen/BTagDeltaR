@@ -2,6 +2,7 @@ import ROOT
 ROOT.gROOT.SetBatch()
 ROOT.TH1.AddDirectory(False)
 
+from libMyUtilityPythonUtil import get_2d_3d_distances
 from varial import fwliteworker, wrappers
 from MyUtility.PythonUtil.genParticles import *
 from MyUtility.PythonUtil.eventlooputility import *
@@ -14,10 +15,6 @@ h_gen_particles = Handle("vector<reco::GenParticle>")
 h_pu_weight = Handle("double")
 h_pv = Handle("vector<reco::Vertex>")
 h_ivf = Handle("vector<reco::Vertex>")
-h_ivf_dxy_val = Handle("vector<double>")
-h_ivf_dxy_err = Handle("vector<double>")
-h_ivf_dxyz_val = Handle("vector<double>")
-h_ivf_dxyz_err = Handle("vector<double>")
 fd_dr = lambda a, b: deltaR_vec_to_vec(a[1], b[1])
 
 
@@ -77,7 +74,7 @@ class Worker(fwliteworker.FwliteWorker):
             8, -.5, 7.5
         )
         fs.make(
-            "VertexDR",
+            "VertexFdDR",
             ";#Delta R;number of events",
             100, 0., 5.
         )
@@ -87,27 +84,28 @@ class Worker(fwliteworker.FwliteWorker):
             100, 0., 5.
         )
         fs.make(
-            "VertexDrFdMomDiff",
-            ";#Delta R difference (DRFD - DRMom);number of events",
-            100, -5., .5
-        )
-        fs.make(
             "DrMomentumFlightdir",
             ";#Delta R;number of vertices",
             100, 0., 1.
         )
-        fs.VertexDrFdVsMom = ROOT.TH2D(
-            "VertexDrFdVsMom",
-            ";Momentum #Delta R; Flight Direction #Delta R",
+        fs.VertexMassVsDr = ROOT.TH2D(
+            'VertexMassVsDr',
+            ';Vertex #Delta R; Vertex Mass',
             100, 0., 5.,
-            100, 0., 5.,
+            100, 0., 10.
         )
-        fs.VertexEtaFdVsMom = ROOT.TH2D(
-            "VertexEtaFdVsMom",
-            ";Momentum #Delta R; Flight Direction #Delta R",
-            100, -2.5, 2.5,
-            100, -2.5, 2.5
+        fs.make(
+            'VertexBeeMassTemplate',
+            ";B vertex candidate mass; number of events",
+            100, 0., 10.
         )
+        fs.make(
+            'VertexDeeMassTemplate',
+            ";D vertex candidate mass; number of events",
+            100, 0., 10.
+        )
+
+        # control plots
         fs.make(
             "VtxPtLeadMass",
             ";pt leading vertex: mass; number of events",
@@ -210,36 +208,31 @@ class Worker(fwliteworker.FwliteWorker):
             ";#DeltaX for matching B and D;number of vertices",
             100, 0., 100
         )
+        fs.VertexBeeDistVsDeeDist = ROOT.TH2D(
+            'VertexBeeDistVsDeeDist',
+            ';D Vertex Dist3D; B Vertex Dist3D',
+            100, 0., 5.,
+            100, 0., 5.
+        )
 
     def node_process_event(self, event):
         fs = self.result
 
         # ivf vertices
         event.getByLabel(self.collection, h_ivf)
-        ivf_vtx = h_ivf.product()
-        if self.filter_vtx:
-            coll = 'bToCharmDecayVertexMergedDistInfo'
-            event.getByLabel(coll, 'DxyVal', h_ivf_dxy_val)
-            event.getByLabel(coll, 'DxyErr', h_ivf_dxy_err)
-            event.getByLabel(coll, 'DxyzVal', h_ivf_dxyz_val)
-            event.getByLabel(coll, 'DxyzErr', h_ivf_dxyz_err)
-            ivf_vtx = list(ivf_vtx)
-            for vtx, xy_v, xy_e, xyz_v, xyz_e in itertools.izip(
-                ivf_vtx,
-                h_ivf_dxy_val.product(),
-                h_ivf_dxy_err.product(),
-                h_ivf_dxyz_val.product(),
-                h_ivf_dxyz_err.product(),
-            ):
-                vtx.dxy_val = xy_v
-                vtx.dxy_err = xy_e
-                vtx.dxyz_val = xyz_v
-                vtx.dxyz_err = xyz_e
+        ivf_vtx = list(h_ivf.product())
+
+        # pv
+        event.getByLabel("offlinePrimaryVertices", h_pv)
+        pv = h_pv.product()[0]
+
+        # flight distances
+        for sv in ivf_vtx:
+            sv.__dict__.update(get_2d_3d_distances(sv, pv))
 
         # flight directions
-        event.getByLabel("offlinePrimaryVertices", h_pv)
         ivf_vtx_fd = get_tuples_with_flight_dirs(
-            ivf_vtx, h_pv.product()[0]
+            ivf_vtx, pv
         )
         if self.filter_vtx:
             ivf_vtx_fd = filter(
@@ -344,30 +337,45 @@ class Worker(fwliteworker.FwliteWorker):
         # dr (needs two vertices)
         if len(ivf_vtx_fd_max2) == 2:
             dr_fd = fd_dr(*ivf_vtx_fd_max2)
-            dr_mom = deltaR_cand_to_cand(ivf_vtx_fd_max2[0][0], ivf_vtx_fd_max2[1][0])
-            fs.VertexDR.Fill(dr_fd, w)
+            dr_mom = deltaR_cand_to_cand(ivf_vtx_fd_max2[0][0],
+                                         ivf_vtx_fd_max2[1][0])
+            fs.VertexFdDR.Fill(dr_fd, w)
             fs.VertexMomDR.Fill(dr_mom, w)
-            fs.VertexDrFdMomDiff.Fill(dr_fd - dr_mom, w)
-            fs.VertexDrFdVsMom.Fill(dr_mom, dr_fd, w)
-            fs.VertexEtaFdVsMom.Fill(
-                ivf_vtx_fd_max2[0][0].p4().eta(),
-                ivf_vtx_fd_max2[0][1].eta()
+
+            # source for fitted histograms
+            fs.VertexMassVsDr.Fill(
+                dr_mom,
+                ivf_vtx_fd_max2[0][0].p4().mass(),
+                w
             )
-            fs.VertexEtaFdVsMom.Fill(
-                ivf_vtx_fd_max2[1][0].p4().eta(),
-                ivf_vtx_fd_max2[1][1].eta()
+            fs.VertexMassVsDr.Fill(
+                dr_mom,
+                ivf_vtx_fd_max2[1][0].p4().mass(),
+                w
             )
+
+            # fit templates
+            if dr_mom < 0.05:
+                ivf_dist_sorted = sorted(ivf_vtx_fd_max2,
+                                         key=lambda v: v[0].dxyz_val)
+                fs.VertexBeeMassTemplate.Fill(
+                    ivf_dist_sorted[0][0].p4().mass(), w)
+                fs.VertexDeeMassTemplate.Fill(
+                    ivf_dist_sorted[1][0].p4().mass(), w)
 
         ######################################################### MC histos ###
         if not is_real_data:
             fs.EventWeight.Fill(w)
-            fin_b = filter(lambda b: b.p4().pt() > 15. and abs(b.p4().eta()) < 2.1, fin_b)
+            fin_b = filter(lambda b: b.p4().pt() > 15.
+                                     and abs(b.p4().eta()) < 2.1, fin_b)
             fs.NumFinalBs.Fill(len(fin_b), w)
             if len(fin_b) > 1:
                 fs.DrFdFinalBs.Fill(min(
                     deltaR_vec_to_vec(
-                        mkrtvec(mkvec(a.daughter(0).vertex()) - mkvec(a.vertex())), 
-                        mkrtvec(mkvec(b.daughter(0).vertex()) - mkvec(b.vertex()))
+                        mkrtvec(
+                            mkvec(a.daughter(0).vertex()) - mkvec(a.vertex())),
+                        mkrtvec(
+                            mkvec(b.daughter(0).vertex()) - mkvec(b.vertex()))
                     )
                     for a, b in itertools.combinations(fin_b, 2)
                 ))
@@ -385,7 +393,7 @@ class Worker(fwliteworker.FwliteWorker):
             fs.VtxDeeNumTracks.Fill(dee.nTracks(), w)
             fs.VtxBeeMass.Fill(bee.p4().M(), w)
             fs.VtxDeeMass.Fill(dee.p4().M(), w)
-
+            fs.VertexBeeDistVsDeeDist.Fill(dee.dxyz_val, bee.dxyz_val, w)
             # matching significance
             matching_bd_cov = matching(
                 ivf_vtx_fd_max2,
@@ -406,7 +414,7 @@ class Worker(fwliteworker.FwliteWorker):
 workers = [
     PreWorker("PreWorker"),
     #Worker("IvfMerged", "inclusiveMergedVertices"),
-    #Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
+    Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
     Worker("IvfB2cMerged", "bToCharmDecayVertexMerged"),
     Worker("IvfB2cMergedFilt", "bToCharmDecayVertexMerged", True),
     #Worker("IvfB2cMergedFiltCov", "bToCharmDecayVertexMergedFilt", True, True),
