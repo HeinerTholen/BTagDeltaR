@@ -393,7 +393,8 @@ class Worker(fwliteworker.FwliteWorker):
             fs.VtxDeeNumTracks.Fill(dee.nTracks(), w)
             fs.VtxBeeMass.Fill(bee.p4().M(), w)
             fs.VtxDeeMass.Fill(dee.p4().M(), w)
-            fs.VertexBeeDistVsDeeDist.Fill(dee.dxyz_val, bee.dxyz_val, w)
+            if 0.03 < deltaR_cand_to_cand(bee, dee):
+                fs.VertexBeeDistVsDeeDist.Fill(dee.dxyz_val, bee.dxyz_val, w)
             # matching significance
             matching_bd_cov = matching(
                 ivf_vtx_fd_max2,

@@ -5,6 +5,8 @@ import varial.generators as gen
 
 class DaNormalizer(varial.tools.Tool):
     """Normalize MC cross sections by center of DR distribution. """
+    can_reuse = False
+
     def get_histos_n_factor(self):
         mcee, data = next(gen.fs_mc_stack_n_data_sum(
             lambda w: w.name=='VertexMomDR' and w.analyzer=='IvfB2cMergedFilt'
@@ -17,7 +19,6 @@ class DaNormalizer(varial.tools.Tool):
         return factor, canv
 
     def run(self):
-
         # before
         factor, canv = self.get_histos_n_factor()
         self.io.write(canv, 'before')
@@ -26,10 +27,17 @@ class DaNormalizer(varial.tools.Tool):
         for s in varial.analysis.mc_samples().itervalues():
             s.lumi *= factor
             s.x_sec *= factor
+        for a in varial.analysis.fs_aliases:
+            a.lumi *= factor
 
         # after
         _, canv = self.get_histos_n_factor()
         self.io.write(canv, 'after')
+
+        self.result = varial.wrappers.FloatWrapper(
+            factor,
+            name='Lumi factor'
+        )
 
 
 class VtxBeeDeePlotter(varial.tools.FSPlotter):
@@ -50,7 +58,6 @@ beedee_plotter = VtxBeeDeePlotter()
 
 stack_plotter = varial.tools.FSPlotter(
     "ControlPlots",
-    input_result_path='../FSHistoLoader',
     filter_keyfunc=lambda w: w.name in [
         'VertexMomDR',
         'VertexFdDR',
@@ -66,41 +73,44 @@ stack_plotter = varial.tools.FSPlotter(
     or 'VtxPtLead' in w.name
     or 'VtxPtSubLead' in w.name
 )
+dist_plotter = varial.tools.FSPlotter(
+    'DistPlotter',
+    filter_keyfunc=lambda w: w.name in [
+        'VertexMassVsDr'
+        'VertexBeeDistVsDeeDist'
+    ]
+    and w.sample == 'TTbarBDMatch'
+)
+all_plotters = [
+    stack_plotter,
+    beedee_plotter,
+    dist_plotter,
+]
 
 chain_ivf_merged = varial.tools.ToolChain(
     'IvfMerged', [
         varial.tools.FSHistoLoader(None, lambda w: 'IvfMerged' == w.analyzer),
-        stack_plotter,
-        beedee_plotter,
-    ]
+    ] + all_plotters
 )
 chain_ivf_merged_filt = varial.tools.ToolChain(
     'IvfMergedFilt', [
         varial.tools.FSHistoLoader(None, lambda w: 'IvfMergedFilt'==w.analyzer),
-        stack_plotter,
-        beedee_plotter,
-    ]
+    ] + all_plotters
 )
 chain_ivf_b2c_merged = varial.tools.ToolChain(
     'IvfB2cMerged', [
         varial.tools.FSHistoLoader(None, lambda w: 'IvfB2cMerged'==w.analyzer),
-        stack_plotter,
-        beedee_plotter,
-    ]
+    ] + all_plotters
 )
 chain_ivf_b2c_merged_filt = varial.tools.ToolChain(
     'IvfB2cMergedFilt', [
         varial.tools.FSHistoLoader(None, lambda w: 'IvfB2cMergedFilt'==w.analyzer),
-        stack_plotter,
-        beedee_plotter,
-    ]
+    ] + all_plotters
 )
 chain_ivf_b2c_merged_filt_cov = varial.tools.ToolChain(
     'IvfB2cMergedFiltCov', [
         varial.tools.FSHistoLoader(None, lambda w: 'IvfB2cMergedFiltCov'==w.analyzer),
-        stack_plotter,
-        beedee_plotter,
-    ]
+    ] + all_plotters
 )
 
 
