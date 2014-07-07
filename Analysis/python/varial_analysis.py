@@ -2,6 +2,7 @@ import os
 
 import ROOT
 ROOT.gROOT.SetBatch()
+ROOT.gROOT.ProcessLine('gErrorIgnoreLevel = kError;')
 import varial.main
 import varial.tools
 import varial.settings as s

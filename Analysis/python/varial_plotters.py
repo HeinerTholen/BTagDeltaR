@@ -1,4 +1,5 @@
 import itertools
+import ROOT
 import varial.tools
 import varial.generators as gen
 
@@ -9,7 +10,9 @@ class DaNormalizer(varial.tools.Tool):
         mcee, data = next(gen.fs_mc_stack_n_data_sum(
             lambda w: w.name=='VertexMomDR' and w.analyzer=='IvfB2cMergedFilt'
         ))
-        factor = data.histo.Integral(1.5, 3.5) / mcee.histo.Integral(1.5, 3.5)
+        dh, mh = data.histo, mcee.histo
+        bins = dh.FindBin(1.51), dh.FindBin(3.51)
+        factor = dh.Integral(*bins) / mh.Integral(*bins)
         canv = next(gen.canvas(
             ((mcee, data),),
             varial.tools.FSPlotter.defaults_attrs['canvas_decorators']
@@ -20,7 +23,7 @@ class DaNormalizer(varial.tools.Tool):
 
         # before
         factor, canv = self.get_histos_n_factor()
-        self.io.write(canv, 'before')
+        next(gen.save([canv], lambda _: 'before'))
 
         # alter samples
         for s in varial.analysis.mc_samples().itervalues():
@@ -29,7 +32,7 @@ class DaNormalizer(varial.tools.Tool):
 
         # after
         _, canv = self.get_histos_n_factor()
-        self.io.write(canv, 'after')
+        next(gen.save([canv], lambda _: 'after'))
 
 
 class VtxBeeDeePlotter(varial.tools.FSPlotter):
@@ -37,7 +40,9 @@ class VtxBeeDeePlotter(varial.tools.FSPlotter):
         self.canvas_decorators = [varial.rendering.Legend]
         wrps = self.lookup('../FSHistoLoader')
         wrps = itertools.ifilter(
-            lambda w: ('ee' in w.name or 'MatchSig' == w.name) and 'TTbarBDMatch'==w.sample,
+            lambda w: ('ee' in w.name or 'MatchSig' == w.name)
+                      and 'TTbarBDMatch' == w.sample
+                      and type(w.histo) == ROOT.TH1D,
             wrps
         )
         wrps = gen.apply_histo_linecolor(
