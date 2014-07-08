@@ -32,8 +32,14 @@ tc = varial.tools.ToolChain(
     ]
 )
 
-if __name__ == '__main__':
+
+def main():
     varial.main.main(
         samples=samples,
         toolchain=tc,
     )
+
+
+if __name__ == '__main__':
+    main()
+

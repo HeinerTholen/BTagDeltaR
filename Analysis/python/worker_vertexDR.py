@@ -206,7 +206,12 @@ class Worker(fwliteworker.FwliteWorker):
         fs.make(
             "VtxBeeDeeMatchSig",
             ";#DeltaX for matching B and D;number of vertices",
-            100, 0., 100
+            100, 0., 100.
+        )
+        fs.make(
+            "VertexBeeDistLtDeeDist",
+            ";Bee.dist3d() < Dee.dist3d() ;number of events",
+            2, -0.5, 1.5
         )
         fs.VertexBeeDistVsDeeDist = ROOT.TH2D(
             'VertexBeeDistVsDeeDist',
@@ -355,13 +360,14 @@ class Worker(fwliteworker.FwliteWorker):
             )
 
             # fit templates
-            if dr_mom < 0.05:
-                ivf_dist_sorted = sorted(ivf_vtx_fd_max2,
+            if dr_mom < 0.1:
+                ivf_near, ivf_far = sorted(ivf_vtx_fd_max2,
                                          key=lambda v: v[0].dxyz_val)
-                fs.VertexBeeMassTemplate.Fill(
-                    ivf_dist_sorted[0][0].p4().mass(), w)
-                fs.VertexDeeMassTemplate.Fill(
-                    ivf_dist_sorted[1][0].p4().mass(), w)
+                if ivf_near[0].nTracks() > ivf_far[0].nTracks():
+                    fs.VertexBeeMassTemplate.Fill(
+                        ivf_near[0].p4().mass(), w)
+                    fs.VertexDeeMassTemplate.Fill(
+                        ivf_far[0].p4().mass(), w)
 
         ######################################################### MC histos ###
         if not is_real_data:
@@ -387,14 +393,20 @@ class Worker(fwliteworker.FwliteWorker):
         # fill B / D vertex histos if in bd mode:
         if 3 == n_matched:
             bee, dee = matched_bd
-            bee = bee[0][0]
-            dee = dee[0][0]
+            bee, bee_gen, bee_match_dr = bee
+            dee, dee_gen, dee_match_dr = dee
+            bee, dee = bee[0], dee[0]
             fs.VtxBeeNumTracks.Fill(bee.nTracks(), w)
             fs.VtxDeeNumTracks.Fill(dee.nTracks(), w)
             fs.VtxBeeMass.Fill(bee.p4().M(), w)
             fs.VtxDeeMass.Fill(dee.p4().M(), w)
-            if 0.03 < deltaR_cand_to_cand(bee, dee):
+            vtx_dr = deltaR_cand_to_cand(bee, dee)
+            if (bee_match_dr < vtx_dr and 
+                dee_match_dr < vtx_dr and
+                bee.nTracks() > dee.nTracks()):
                 fs.VertexBeeDistVsDeeDist.Fill(dee.dxyz_val, bee.dxyz_val, w)
+                fs.VertexBeeDistLtDeeDist.Fill(dee.dxyz_val > bee.dxyz_val, w)
+
             # matching significance
             matching_bd_cov = matching(
                 ivf_vtx_fd_max2,

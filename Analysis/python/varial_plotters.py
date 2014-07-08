@@ -10,10 +10,10 @@ class DaNormalizer(varial.tools.Tool):
 
     def get_histos_n_factor(self):
         mcee, data = next(gen.fs_mc_stack_n_data_sum(
-            lambda w: w.name=='VertexMomDR' and w.analyzer=='IvfB2cMergedFilt'
+            lambda w: w.name=='VtxPtLeadEta' and w.analyzer=='IvfB2cMergedFilt'
         ))
         dh, mh = data.histo, mcee.histo
-        bins = dh.FindBin(1.51), dh.FindBin(3.51)
+        bins = dh.FindBin(-1.51), dh.FindBin(1.51)
         factor = dh.Integral(*bins) / mh.Integral(*bins)
         canv = next(gen.canvas(
             ((mcee, data),),
@@ -28,10 +28,10 @@ class DaNormalizer(varial.tools.Tool):
 
         # alter samples
         for s in varial.analysis.mc_samples().itervalues():
-            s.lumi *= factor
-            s.x_sec *= factor
+            s.lumi /= factor
+            s.x_sec /= factor
         for a in varial.analysis.fs_aliases:
-            a.lumi *= factor
+            a.lumi /= factor
 
         # after
         _, canv = self.get_histos_n_factor()
@@ -81,8 +81,9 @@ stack_plotter = varial.tools.FSPlotter(
 dist_plotter = varial.tools.FSPlotter(
     'DistPlotter',
     filter_keyfunc=lambda w: w.name in [
-        'VertexMassVsDr'
-        'VertexBeeDistVsDeeDist'
+        'VertexMassVsDr',
+        'VertexBeeDistVsDeeDist',
+        'VertexBeeDistLtDeeDist',
     ]
     and w.sample == 'TTbarBDMatch'
 )
