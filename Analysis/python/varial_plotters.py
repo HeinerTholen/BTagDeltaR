@@ -80,11 +80,10 @@ stack_plotter = varial.tools.FSPlotter(
 )
 dist_plotter = varial.tools.FSPlotter(
     'DistPlotter',
-    filter_keyfunc=lambda w: w.name in [
+    filter_keyfunc=lambda w: (w.name in [
         'VertexMassVsDr',
-        'VertexBeeDistVsDeeDist',
         'VertexBeeDistLtDeeDist',
-    ]
+    ] or 'VertexBeeVsDee' in w.name)
     and w.sample == 'TTbarBDMatch'
 )
 all_plotters = [

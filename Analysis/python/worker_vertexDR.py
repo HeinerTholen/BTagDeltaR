@@ -213,11 +213,29 @@ class Worker(fwliteworker.FwliteWorker):
             ";Bee.dist3d() < Dee.dist3d() ;number of events",
             2, -0.5, 1.5
         )
-        fs.VertexBeeDistVsDeeDist = ROOT.TH2D(
-            'VertexBeeDistVsDeeDist',
+        fs.VertexBeeVsDeeDist2D = ROOT.TH2D(
+            'VertexBeeVsDeeDist2D',
+            ';D Vertex Dist2D; B Vertex Dist2D',
+            100, 0., 10.,
+            100, 0., 10.
+        )
+        fs.VertexBeeVsDeeDist3D = ROOT.TH2D(
+            'VertexBeeVsDeeDist3D',
             ';D Vertex Dist3D; B Vertex Dist3D',
-            100, 0., 5.,
-            100, 0., 5.
+            100, 0., 10.,
+            100, 0., 10.
+        )
+        fs.VertexBeeVsDeeSig2D = ROOT.TH2D(
+            'VertexBeeVsDeeSig2D',
+            ';D Vertex Sig2D; B VertexSig2D',
+            100, 0., 10.,
+            100, 0., 10.
+        )
+        fs.VertexBeeVsDeeSig3D = ROOT.TH2D(
+            'VertexBeeVsDeeSig3D',
+            ';D Vertex Sig3D; B Vertex Sig3D',
+            100, 0., 10.,
+            100, 0., 10.
         )
 
     def node_process_event(self, event):
@@ -233,7 +251,7 @@ class Worker(fwliteworker.FwliteWorker):
 
         # flight distances
         for sv in ivf_vtx:
-            sv.__dict__.update(get_2d_3d_distances(sv, pv))
+            sv.__dict__.update(get_2d_3d_distances(pv, sv))
 
         # flight directions
         ivf_vtx_fd = get_tuples_with_flight_dirs(
@@ -402,9 +420,13 @@ class Worker(fwliteworker.FwliteWorker):
             fs.VtxDeeMass.Fill(dee.p4().M(), w)
             vtx_dr = deltaR_cand_to_cand(bee, dee)
             if (bee_match_dr < vtx_dr and 
-                dee_match_dr < vtx_dr and
-                bee.nTracks() > dee.nTracks()):
-                fs.VertexBeeDistVsDeeDist.Fill(dee.dxyz_val, bee.dxyz_val, w)
+                dee_match_dr < vtx_dr 
+                #and bee.nTracks() > dee.nTracks()
+            ):
+                fs.VertexBeeVsDeeDist3D.Fill(dee.dxyz_val, bee.dxyz_val, w)
+                fs.VertexBeeVsDeeDist2D.Fill(dee.dxy_val, bee.dxy_val, w)
+                fs.VertexBeeVsDeeSig3D.Fill(dee.dxyz_val/dee.dxyz_err, bee.dxyz_val/bee.dxyz_err, w)
+                fs.VertexBeeVsDeeSig2D.Fill(dee.dxy_val/dee.dxy_err, bee.dxy_val/bee.dxy_err, w)
                 fs.VertexBeeDistLtDeeDist.Fill(dee.dxyz_val > bee.dxyz_val, w)
 
             # matching significance

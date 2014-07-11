@@ -102,12 +102,12 @@ smp_emu_mc.append(TTDilepEMuSample(
     legend='DY + jets',
 ))
 
-smp_emu_mc.append(TTDilepEMuSample(
-    name='WJets',
-    x_sec=37509.,
-    n_events=57709905,
-    legend='W + jets',
-))
+#smp_emu_mc.append(TTDilepEMuSample(
+#    name='WJets',
+#    x_sec=37509.,
+#    n_events=57709905,
+#    legend='W + jets',
+#))
 
 smp_emu_mc.append(TTDilepEMuSample(
     name='TTbarNoMatch',
