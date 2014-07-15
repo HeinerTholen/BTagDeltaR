@@ -223,6 +223,11 @@ class Worker(fwliteworker.FwliteWorker):
             ";Bee.dist3d() < Dee.dist3d() ;number of events",
             2, -0.5, 1.5
         )
+        fs.make(
+            "VertexBeeDistLtDeeDistOneSig",
+            ";Bee.dist3d() < Dee.dist3d() ;number of events",
+            2, -0.5, 1.5
+        )
         fs.VertexBeeVsDeeDist2D = ROOT.TH2D(
             'VertexBeeVsDeeDist2D',
             ';D Vertex Dist2D; B Vertex Dist2D',
@@ -436,13 +441,15 @@ class Worker(fwliteworker.FwliteWorker):
             if (    bee_match_dr < vtx_dr
                 and dee_match_dr < vtx_dr
                 and vtx_dr < 0.1
-                and bee.nTracks() > dee.nTracks()
+                #and bee.nTracks() > dee.nTracks()
             ):
                 fs.VertexBeeVsDeeDist3D.Fill(dee.dxyz_val, bee.dxyz_val, w)
                 fs.VertexBeeVsDeeDist2D.Fill(dee.dxy_val, bee.dxy_val, w)
                 fs.VertexBeeVsDeeSig3D.Fill(dee.dxyz_val/dee.dxyz_err, bee.dxyz_val/bee.dxyz_err, w)
                 fs.VertexBeeVsDeeSig2D.Fill(dee.dxy_val/dee.dxy_err, bee.dxy_val/bee.dxy_err, w)
                 fs.VertexBeeDistLtDeeDist.Fill(dee.dxyz_val > bee.dxyz_val, w)
+                if dee.dxyz_val - dee.dxyz_err > bee.dxyz_val + bee.dxyz_err:
+                    fs.VertexBeeDistLtDeeDistOneSig.Fill(dee.dxyz_val > bee.dxyz_val, w)
 
             # matching significance
             matching_bd_cov = matching(
