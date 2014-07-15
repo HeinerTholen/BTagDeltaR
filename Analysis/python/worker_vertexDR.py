@@ -162,7 +162,7 @@ class Worker(fwliteworker.FwliteWorker):
             21, -.5, 20.5
         )
         fs.make(
-            "VtxPtSubLeadNumSize",
+            "VtxPtSubLeadTracksSize",
             ";pt sub leading vertex: no. tracks; number of events",
             21, -.5, 20.5
         )
