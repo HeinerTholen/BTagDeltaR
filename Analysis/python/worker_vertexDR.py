@@ -399,7 +399,7 @@ class Worker(fwliteworker.FwliteWorker):
             # fit templates
             if dr_mom < 0.1:
                 near, far = sorted(ivf_vtx_fd_max2, key=lambda v: v[0].dxyz_val)
-                if (near[0].dxyz_val + near[0].dxyz_err >
+                if (near[0].dxyz_val + near[0].dxyz_err <
                         far[0].dxyz_val - far[0].dxyz_err):
                     fs.VertexBeeMassTemplate.Fill(near[0].p4().mass(), w)
                     fs.VertexDeeMassTemplate.Fill(far[0].p4().mass(), w)
