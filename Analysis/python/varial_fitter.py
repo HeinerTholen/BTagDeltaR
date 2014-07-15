@@ -16,8 +16,8 @@ def get_slice_from_TH2D(wrp, bin_low, bin_high):
 
 def slice_generator(wrps):
     for wrp in wrps:
-        for i in xrange(0, 100, 20):
-            yield get_slice_from_TH2D(wrp, i, i+20)
+        yield get_slice_from_TH2D(wrp, 0, 2)
+        yield get_slice_from_TH2D(wrp, 10, 80)
 
 
 class MassHistoSlicer(varial.tools.Tool):
