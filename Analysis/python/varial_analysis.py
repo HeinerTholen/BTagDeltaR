@@ -10,10 +10,10 @@ import varial.settings as s
 import ttdilep_samples
 import varial_plotters
 
-s.web_target_dir = '/afs/desy.de/user/t/tholenhe/www/btagdr/ana/'
+#s.web_target_dir = '/afs/desy.de/user/t/tholenhe/www/btagdr/ana/'
 s.rootfile_postfixes = ['.root', '.png']
 s.fwlite_executable = os.path.join(
-    os.environ['CMSSW_BASE'],
+    "$HOME",  # os.environ['CMSSW_BASE'],
     'src/BTagDeltaR/Analysis/python/worker_vertexDR.py',
 )
 
