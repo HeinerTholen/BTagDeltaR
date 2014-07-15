@@ -148,15 +148,25 @@ class Worker(fwliteworker.FwliteWorker):
         )
         fs.make(
             "VtxPtLeadNumTracks",
-            ";pt leading vertex: no. tracks; number of events",
-            11, -.5, 10.5
+            ";pt leading vertex: no. tracks (weight > 0.5); number of events",
+            21, -.5, 20.5
         )
         fs.make(
             "VtxPtSubLeadNumTracks",
-            ";pt sub leading vertex: no. tracks; number of events",
-            11, -.5, 10.5
+            ";pt sub leading vertex: no. tracks (weight > 0.5); number of events",
+            21, -.5, 20.5
         )
- 
+        fs.make(
+            "VtxPtLeadTracksSize",
+            ";pt leading vertex: no. tracks; number of events",
+            21, -.5, 20.5
+        )
+        fs.make(
+            "VtxPtSubLeadNumSize",
+            ";pt sub leading vertex: no. tracks; number of events",
+            21, -.5, 20.5
+        )
+
         # from here on only MC histograms
         if "Run" in init_wrp.sample:
             return
@@ -347,12 +357,16 @@ class Worker(fwliteworker.FwliteWorker):
             fs.VtxPtLeadEta.Fill(ivf_vtx_fd_pt_sort[0][0].p4().eta(), w)
             fs.VtxPtLeadFdEta.Fill(ivf_vtx_fd_pt_sort[0][1].eta(), w)
             fs.VtxPtLeadNumTracks.Fill(ivf_vtx_fd_pt_sort[0][0].nTracks(), w)
+            fs.VtxPtLeadTracksSize.Fill(
+                ivf_vtx_fd_pt_sort[0][0].tracksSize(), w)
         if len(ivf_vtx_fd_pt_sort) > 1:
             fs.VtxPtSubLeadMass.Fill(ivf_vtx_fd_pt_sort[1][0].p4().mass(), w)
             fs.VtxPtSubLeadPt.Fill(ivf_vtx_fd_pt_sort[1][0].p4().pt(), w)
             fs.VtxPtSubLeadEta.Fill(ivf_vtx_fd_pt_sort[1][0].p4().eta(), w)
             fs.VtxPtSubLeadFdEta.Fill(ivf_vtx_fd_pt_sort[1][1].eta(), w)
             fs.VtxPtSubLeadNumTracks.Fill(ivf_vtx_fd_pt_sort[1][0].nTracks(), w)
+            fs.VtxPtSubLeadTracksSize.Fill(
+                ivf_vtx_fd_pt_sort[1][0].tracksSize(), w)
 
         for vtx, fd in ivf_vtx_fd:
             fs.DrMomentumFlightdir.Fill(deltaR_vec_to_vec(fd, vtx.p4()), w)
@@ -419,9 +433,10 @@ class Worker(fwliteworker.FwliteWorker):
             fs.VtxBeeMass.Fill(bee.p4().M(), w)
             fs.VtxDeeMass.Fill(dee.p4().M(), w)
             vtx_dr = deltaR_cand_to_cand(bee, dee)
-            if (bee_match_dr < vtx_dr and 
-                dee_match_dr < vtx_dr 
-                #and bee.nTracks() > dee.nTracks()
+            if (    bee_match_dr < vtx_dr
+                and dee_match_dr < vtx_dr
+                and vtx_dr < 0.1
+                and bee.nTracks() > dee.nTracks()
             ):
                 fs.VertexBeeVsDeeDist3D.Fill(dee.dxyz_val, bee.dxyz_val, w)
                 fs.VertexBeeVsDeeDist2D.Fill(dee.dxy_val, bee.dxy_val, w)

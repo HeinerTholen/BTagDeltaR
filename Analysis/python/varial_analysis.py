@@ -9,6 +9,7 @@ import varial.settings as s
 
 import ttdilep_samples
 import varial_plotters
+import varial_fitter
 
 #s.web_target_dir = '/afs/desy.de/user/t/tholenhe/www/btagdr/ana/'
 s.rootfile_postfixes = ['.root', '.png']
@@ -23,11 +24,10 @@ tc = varial.tools.ToolChain(
     [
         varial.tools.FwliteProxy(),
         varial_plotters.DaNormalizer(),
-#        varial_plotters.chain_ivf_merged,
         varial_plotters.chain_ivf_merged_filt,
         varial_plotters.chain_ivf_b2c_merged,
         varial_plotters.chain_ivf_b2c_merged_filt,
-#        varial_plotters.chain_ivf_b2c_merged_filt_cov,
+        varial_fitter.fitter_chain,
         varial.tools.SimpleWebCreator(),
     ]
 )
