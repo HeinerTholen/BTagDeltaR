@@ -23,6 +23,7 @@ tc = varial.tools.ToolChain(
     "ttdilep_analysis",
     [
         varial.tools.FwliteProxy(),
+        varial.tools.ZipTool('ttdilep_analysis/FwliteProxy'),
         varial_plotters.DaNormalizer(),
         varial_plotters.chain_ivf_merged_filt,
         varial_plotters.chain_ivf_b2c_merged,
