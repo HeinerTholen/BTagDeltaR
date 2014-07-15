@@ -83,7 +83,7 @@ dist_plotter = varial.tools.FSPlotter(
     filter_keyfunc=lambda w: (w.name in [
         'VertexMassVsDr',
         'VertexBeeDistLtDeeDist',
-        'VertexBeeDistLtDeeDistOneSig',
+        'VertexBeeDistLtDeeDistOneSigma',
     ] or 'VertexBeeVsDee' in w.name)
     and w.sample == 'TTbarBDMatch'
 )

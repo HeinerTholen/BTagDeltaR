@@ -224,7 +224,7 @@ class Worker(fwliteworker.FwliteWorker):
             2, -0.5, 1.5
         )
         fs.make(
-            "VertexBeeDistLtDeeDistOneSig",
+            "VertexBeeDistLtDeeDistOneSigma",
             ";Bee.dist3d() < Dee.dist3d() ;number of events",
             2, -0.5, 1.5
         )
@@ -399,12 +399,11 @@ class Worker(fwliteworker.FwliteWorker):
             # fit templates
             if dr_mom < 0.1:
                 ivf_near, ivf_far = sorted(ivf_vtx_fd_max2,
-                                         key=lambda v: v[0].dxyz_val)
-                if ivf_near[0].nTracks() > ivf_far[0].nTracks():
-                    fs.VertexBeeMassTemplate.Fill(
-                        ivf_near[0].p4().mass(), w)
-                    fs.VertexDeeMassTemplate.Fill(
-                        ivf_far[0].p4().mass(), w)
+                                         key = lambda v: v[0].dxyz_val)
+                if (ivf_near[0].dxyz_val + ivf_near[0].dxyz_err >
+                        ivf_far[0].dxyz_val - ivf_far[0].dxyz_err):
+                    fs.VertexBeeMassTemplate.Fill(ivf_near[0].p4().mass(), w)
+                    fs.VertexDeeMassTemplate.Fill(ivf_far[0].p4().mass(), w)
 
         ######################################################### MC histos ###
         if not is_real_data:
@@ -449,7 +448,7 @@ class Worker(fwliteworker.FwliteWorker):
                 fs.VertexBeeVsDeeSig2D.Fill(dee.dxy_val/dee.dxy_err, bee.dxy_val/bee.dxy_err, w)
                 fs.VertexBeeDistLtDeeDist.Fill(dee.dxyz_val > bee.dxyz_val, w)
                 if dee.dxyz_val - dee.dxyz_err > bee.dxyz_val + bee.dxyz_err:
-                    fs.VertexBeeDistLtDeeDistOneSig.Fill(dee.dxyz_val > bee.dxyz_val, w)
+                    fs.VertexBeeDistLtDeeDistOneSigma.Fill(dee.dxyz_val > bee.dxyz_val, w)
 
             # matching significance
             matching_bd_cov = matching(
