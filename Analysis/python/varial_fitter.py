@@ -22,17 +22,27 @@ def slice_generator(wrps):
 
 class MassHistoSlicer(varial.tools.Tool):
     def run(self):
-        wrps = list(self.lookup('../FSHistoLoader'))
+        wrps = filter(
+            lambda w: isinstance(w.histo, ROOT.TH2D),
+            self.lookup('../FSHistoLoader')
+        )
         self.result = list(slice_generator(wrps))
 
 
 fitter_chain = varial.tools.ToolChain(
     'VtxMassFitter', [
         varial.tools.FSHistoLoader(
-            None,
-            lambda w: 'VertexMassVsDr' == w.name
+            filter_keyfunc=lambda w: w.name in [
+                'VertexBeeMassTemplate',
+                'VertexDeeMassTemplate',
+                'VertexMassVsDr'
+            ]
         ),
         MassHistoSlicer(),
+        varial.tools.FSPlotter(
+            'TemplatePlots',
+            filter_keyfunc=lambda w: 'Template' in w.name
+        ),
         varial.tools.FSPlotter(
             'MassSlicePlots',
             input_result_path="../MassHistoSlicer"
