@@ -6,6 +6,7 @@ ROOT.gROOT.SetBatch()
 import varial
 import varial.main
 import varial.sample
+import varial.tools
 
 
 tmp_dataset = '_tmp_das_datasets.txt'
@@ -80,9 +81,12 @@ def main():
             ))
 
     varial.main.main(
+        toolchain=varial.tools.CmsRunProxy(
+            "BTagDeltaR.PreSelections.MergeTtdilep_cfg",
+            use_file_service=False,
+            name='cmsrun_output',
+        ),
         samples=samples,
-        cmsRun_use_file_service=False,
-        cmsRun_main_import_path="BTagDeltaR.PreSelections.MergeTtdilep_cfg",
         max_num_processes=8
     )
 
