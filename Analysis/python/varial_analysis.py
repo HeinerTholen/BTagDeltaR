@@ -30,6 +30,7 @@ tc = varial.tools.ToolChain(
         varial_plotters.chain_ivf_b2c_merged_filt,
         varial_fitter.fitter_chain,
         varial.tools.SimpleWebCreator(),
+        varial.tools.CopyTool(os.path.join(os.environ['HOME'], 'tmp'))
     ]
 )
 
