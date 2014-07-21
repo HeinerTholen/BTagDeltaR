@@ -11,10 +11,9 @@ import ttdilep_samples
 import varial_plotters
 import varial_fitter
 
-#s.web_target_dir = '/afs/desy.de/user/t/tholenhe/www/btagdr/ana/'
 s.rootfile_postfixes = ['.root', '.png']
 fwlite_exe = os.path.join(
-    "$HOME",  # os.environ['CMSSW_BASE'],
+    os.environ['CMSSW_BASE'],
     'src/BTagDeltaR/Analysis/python/worker_vertexDR.py',
 )
 
@@ -30,7 +29,8 @@ tc = varial.tools.ToolChain(
         varial_plotters.chain_ivf_b2c_merged_filt,
         varial_fitter.fitter_chain,
         varial.tools.SimpleWebCreator(),
-        varial.tools.CopyTool(os.path.join(os.environ['HOME'], 'tmp'))
+        varial.tools.CopyTool(
+            os.path.join(os.environ['HOME'], 'www/btagdr/ana/')),
     ]
 )
 
