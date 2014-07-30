@@ -7,54 +7,22 @@ import varial.generators as gen
 
 ##################################################### convenience functions ###
 legend_tags = ["real", "fakeGamma", "fakeOther", "fake"]
+re_bins = list(i / 10. for i in xrange(0, 100, 2))
+#re_bins = list(i / 10. for i in xrange(14, 30, 2))
 
 
-def color(key):
-    for tag in legend_tags:
-        if tag in key:
-            return varial.analysis.get_color(tag)
-    if "SihihSB" in key:
-        return varial.analysis.get_color("fake")
-    return 0
 
-
-def get_legend_name(key):
-    if "Template" in key:
-        for tag in legend_tags:
-            if tag in key:
-                return varial.analysis.get_pretty_name(tag)
-    else:
-        return varial.analysis.get_pretty_name(key)
-
-
-def cosmetica1(wrps):
+def gen_set_legend_and_color(wrps):
     for w in wrps:
-        name = get_legend_name(w.analyzer)
-        w.histo.SetTitle(name)
-        w.histo.SetYTitle(w.histo.GetYaxis().GetTitle() + " / a.u.")
-        w.legend = name
-        w.histo.SetLineColor(color(w.analyzer))
-        w.histo.SetLineWidth(3)
-        w.histo.SetFillStyle(0)
-        yield w
-
-
-def cosmetica2(wrps):
-    for w in wrps:
-        #name = get_legend_name(w.analyzer)
-        if "BeeMass" in w.name:
-            name = "Bee Template"
-            col = ROOT.kGreen
+        if "Bee" in w.name:
+            name = "B Template"
+            col = ROOT.kSpring - 4
         else:
-            name = "Dee Template"
-            col = ROOT.kRed
+            name = "D Template"
+            col = ROOT.kRed + 2
         w.histo.SetTitle(name)
         w.legend = name
-        w.histo.SetLineColor(1)
-        w.histo.SetLineWidth(1)
-        w.histo.SetFillColor(col) #color(w.analyzer))
-        w.histo.SetFillStyle(1001)
-        w.draw_option = "hist"
+        w.histo.SetFillColor(col)
         yield w
 
 
@@ -153,7 +121,7 @@ class MassHistoSlicer(varial.tools.Tool):
 
     def __init__(self, name=None, slices=None):
         super(MassHistoSlicer, self).__init__(name)
-        self.slices = slices or [(0, 4), (10, 80)]
+        self.slices = slices or [(0, 8), (10, 80)]
 
     def run(self):
         @varial.history.track_history
@@ -173,16 +141,16 @@ class MassHistoSlicer(varial.tools.Tool):
             lambda w: isinstance(w.histo, ROOT.TH2D),
             self.lookup('../FSHistoLoader')
         )
-        self.result = list(gen.gen_rebin(
-            slice_generator(wrps),
-            list(i/10. for i in xrange(0, 100, 2))
-        ))
+        wrps = slice_generator(wrps)
+        wrps = gen.gen_rebin(wrps, re_bins)
+        self.result = list(wrps)
 
 
 class FitHistosCreator(varial.tools.Tool):
     """Result: [fitted_histo, template1, template2, ...]"""
 
     def run(self):
+        # grab templates
         tmplts = itertools.ifilter(
             lambda w: 'Template' in w.name,
             self.lookup("../FSHistoLoader")
@@ -194,22 +162,29 @@ class FitHistosCreator(varial.tools.Tool):
             varial.wrappers.HistoWrapper(w.histo, **w.all_info())
             for w in tmplts
         )
-        tmplts = list(cosmetica2(tmplts))
-        if not tmplts[0].is_data:
-            data_lumi = varial.analysis.data_lumi_sum_wrp()
-            tmplts = list(gen.op.prod((w, data_lumi)) for w in tmplts)
+        tmplts = gen.gen_rebin(tmplts, re_bins)
+        tmplts = gen_set_legend_and_color(tmplts)
+        tmplts = list(tmplts)
 
+        # grab fitted histogram
         fitted = self.lookup('../MassHistoSlicer')
         fitted = gen.sort(fitted)
         fitted = gen.group(fitted)
         fitted = gen.mc_stack_n_data_sum(fitted)
         fitted = itertools.chain.from_iterable(fitted)
+        fitted = gen.gen_rebin(fitted, re_bins)
         fitted = [next(fitted)]
+        if not fitted[0].is_data:
+            fitted[0].legend = 'Pseudo-Data'
 
-        self.result = list(gen.gen_rebin(
-            fitted + tmplts,
-            list(i/10. for i in xrange(0, 100, 2))
-        ))
+        # normalize templates to starting values
+        integral = fitted[0].histo.Integral()
+        for t in tmplts:
+            t.histo.Scale(
+                integral / t.histo.Integral() / len(tmplts)
+            )
+
+        self.result = fitted + tmplts
 
 
 ################################################################## Fit Tool ###
@@ -317,10 +292,10 @@ test_fit_chain = varial.tools.ToolChain(
                 ('VertexBeeMassTemplate', 'IvfMergedFilt'),
                 ('VertexDeeMassTemplate', 'IvfMergedFilt'),
                 ('VertexMassVsDr', 'IvfB2cMerged'),
-            ] and w.is_data
+            ] and not w.is_data
         ),
         MassHistoSlicer(                                    # MassHistoSlice
-            slices=[(0, 4)]
+            slices=[(0, 8)]
         ),
         FitHistosCreator(),                                 # FitHistosCreator
         varial.tools.FSPlotter(input_result_path='../FitHistosCreator'),
@@ -342,6 +317,7 @@ fitter_chain = varial.tools.ToolChain(
         varial.tools.FSPlotter(
             'TemplatePlots',
             filter_keyfunc=lambda w: 'Template' in w.name
+                                     and 'IvfMergedFilt' in w.analyzer
         ),
         varial.tools.FSPlotter(
             'MassSlicePlots',

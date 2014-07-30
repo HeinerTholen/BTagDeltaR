@@ -18,15 +18,24 @@ fwlite_exe = os.path.join(
 )
 
 samples = ttdilep_samples.smp_emu_mc + ttdilep_samples.smp_emu_data
+active_samples = list(s.name for s in samples)
+active_samples.remove('TTbar')
+
 tc = varial.tools.ToolChain(
     "ttdilep_analysis",
     [
         varial.tools.FwliteProxy(fwlite_exe),
         varial.tools.ZipTool('ttdilep_analysis/FwliteProxy'),
+        varial.tools.CopyTool(
+            os.path.join(os.environ['HOME'], 'www/btagdr/ana/'),
+            name="ZipFileCopyTool",
+        ),
+        varial_plotters.jet_plots,
         varial_plotters.DaNormalizer(),
         varial_plotters.chain_ivf_merged_filt,
+        varial_plotters.chain_ivf_merged_filt_cuts,
         varial_plotters.chain_ivf_b2c_merged,
-        varial_plotters.chain_ivf_b2c_merged_filt,
+        varial_plotters.chain_ivf_b2c_merged_cuts,
         varial_fitter.fitter_chain,
         varial.tools.SimpleWebCreator(),
         varial.tools.CopyTool(
@@ -38,6 +47,7 @@ tc = varial.tools.ToolChain(
 def main():
     varial.main.main(
         samples=samples,
+        active_samples=active_samples,
         toolchain=tc,
     )
 

@@ -3,19 +3,21 @@ ROOT.gROOT.SetBatch()
 ROOT.TH1.AddDirectory(False)
 
 from libMyUtilityPythonUtil import get_2d_3d_distances
-from varial import fwliteworker, wrappers
+from varial import fwliteworker
 from MyUtility.PythonUtil.genParticles import *
 from MyUtility.PythonUtil.eventlooputility import *
 from DataFormats.FWLite import Events, Handle
 
 
-# parameters / handles
+# globals
 DR_for_matching = 0.1
+fd_dr = lambda a, b: deltaR_vec_to_vec(a[1], b[1])
 h_gen_particles = Handle("vector<reco::GenParticle>")
 h_pu_weight = Handle("double")
 h_pv = Handle("vector<reco::Vertex>")
-h_ivf = Handle("vector<reco::Vertex>")
-fd_dr = lambda a, b: deltaR_vec_to_vec(a[1], b[1])
+h_ivf_normal = Handle("vector<reco::Vertex>")
+h_ivf_merged = Handle("vector<reco::MergedVertex>")
+h_jets = Handle("vector<pat::Jet>")
 
 
 def get_tuples_with_flight_dirs(vertices, primary_vertex):
@@ -31,31 +33,85 @@ def get_tuples_with_flight_dirs(vertices, primary_vertex):
 
 
 class PreWorker(fwliteworker.FwliteWorker):
-    def node_process_event(self, event):
-        is_real_data = event.eventAuxiliary().isRealData()
-        event.weight = 1.
-        if not is_real_data:
-            event.getByLabel("genParticles", h_gen_particles)
-            event.gen_particles = h_gen_particles.product()
-            event.fin_b = final_b_hadrons(event.gen_particles)
+    def node_setup(self, init_wrp):
+        print "Starting:", init_wrp.sample, \
+            init_wrp.event_handle.size(), init_wrp.filenames
 
-            event.getByLabel("puWeight", "PUWeightTrue", h_pu_weight)
-            event.weight *= h_pu_weight.product()[0]
+        init_wrp.pre_worker = self
+        self.init_wrp = init_wrp
+
+        self.h_gen_particles = h_gen_particles
+        self.h_pu_weight = h_pu_weight
+        self.h_pv = h_pv
+        self.h_ivf_normal = h_ivf_normal
+        self.h_ivf_merged = h_ivf_merged
+        self.h_jets = h_jets
+
+        fs = self.result
+        fs.NumInEvts = ROOT.TH1D('NumInEvts', 'NumInEvts', 1, 0.5, 1.5)
+        fs.NumInEvts.Fill(1., init_wrp.event_handle.size())
+
+    def node_process_event(self, event):
+        self.weight = 1.
+        event.getByLabel("offlinePrimaryVertices", self.h_pv)
+        self.pv = self.h_pv.product()[0]
+        event.getByLabel("selectedPatJetsPF", self.h_jets)
+        self.jets = h_jets.product()
+        self.is_real_data = "Run" in self.init_wrp.sample
+        if not self.is_real_data:
+            event.getByLabel("genParticles", self.h_gen_particles)
+            self.gen_particles = self.h_gen_particles.product()
+            self.fin_b = final_b_hadrons(self.gen_particles)
+
+            event.getByLabel("puWeight", "PUWeightTrue", self.h_pu_weight)
+            self.weight *= self.h_pu_weight.product()[0]
+
+    def node_finalize(self, init_wrp):
+        print "Done:", init_wrp.sample, \
+            init_wrp.event_handle.size(), init_wrp.filenames
+
+
+class JetWorker(fwliteworker.FwliteWorker):
+    def node_setup(self, init_wrp):
+        self.init_wrp = init_wrp
+        fs = self.result
+
+        fs.make(
+            "SelectedPatJetPt",
+            ";selectedPatJets: p_{T}; number of events",
+            100, 0., 500.
+        )
+        fs.make(
+            "SelectedPatJetEta",
+            ";selectedPatJets: #eta; number of events",
+            100, -3.5, 3.5
+        )
+
+    def node_process_event(self, event):
+        sample = self.init_wrp.sample
+        if 'TTbar' in sample and 'NoMatch' not in sample:
+            return
+
+        fs = self.result
+        pre_worker = self.init_wrp.pre_worker
+        w = pre_worker.weight
+        jets = pre_worker.jets
+        for j in jets:
+            fs.SelectedPatJetPt.Fill(j.pt(), w)
+            fs.SelectedPatJetEta.Fill(j.eta(), w)
 
 
 class Worker(fwliteworker.FwliteWorker):
-    def __init__(self, name, collection, filter_vtx=False, dee_cov_match=False):
+    def __init__(self, name, collection, vtx_handle, filter_vtx=False, dee_cov_match=False):
         super(Worker, self).__init__(name)
         self.collection = collection
         self.n_matches_required = -1
         self.filter_vtx = filter_vtx
         self.dee_cov_match = dee_cov_match
+        self.vtx_handle = vtx_handle
 
     def node_setup(self, init_wrp):
-        if not hasattr(init_wrp, 'announced'):
-            init_wrp.announced = True
-            print "Starting:", init_wrp.sample, \
-                init_wrp.event_handle.size(), init_wrp.filenames
+        self.init_wrp = init_wrp
 
         if 'TTbarNoMatch' == init_wrp.sample:
             self.n_matches_required = 0
@@ -66,9 +122,7 @@ class Worker(fwliteworker.FwliteWorker):
         elif 'TTbarBDMatch' == init_wrp.sample:
             self.n_matches_required = 3
         fs = self.result
-        fs.NumInEvts = ROOT.TH1D('NumInEvts', 'NumInEvts', 1, 0.5, 1.5)
-        fs.NumInEvts.Fill(1., init_wrp.event_handle.size())
-        fs.NumIvfVertices = ROOT.TH1D(
+        fs.make(
             "NumIvfVertices",
             ";number of IVF vertices;number of events",
             8, -.5, 7.5
@@ -88,6 +142,8 @@ class Worker(fwliteworker.FwliteWorker):
             ";#Delta R;number of vertices",
             100, 0., 1.
         )
+
+        # Mass Template Fit
         fs.VertexMassVsDr = ROOT.TH2D(
             'VertexMassVsDr',
             ';Vertex #Delta R; Vertex Mass',
@@ -103,6 +159,24 @@ class Worker(fwliteworker.FwliteWorker):
             'VertexDeeMassTemplate',
             ";D vertex candidate mass; number of events",
             100, 0., 10.
+        )
+
+        # NTracks Template Fit
+        fs.VertexNTracksVsDr = ROOT.TH2D(
+            'VertexNTracksVsDr',
+            ';Vertex #Delta R; Vertex number of tracks',
+            100, 0., 5.,
+            21, -.5, 20.5
+        )
+        fs.make(
+            'VertexBeeNTracksTemplate',
+            ";B vertex candidate number of tracks; number of events",
+            21, -.5, 20.5
+        )
+        fs.make(
+            'VertexDeeNTracksTemplate',
+            ";D vertex candidate number of tracks; number of events",
+            21, -.5, 20.5
         )
 
         # control plots
@@ -224,6 +298,11 @@ class Worker(fwliteworker.FwliteWorker):
             2, -0.5, 1.5
         )
         fs.make(
+            "VertexBeeMassLtDeeMass",
+            ";Bee.p4().mass() < Dee.p4().mass() ;number of events",
+            2, -0.5, 1.5
+        )
+        fs.make(
             "VertexBeeDistLtDeeDistOneSigma",
             ";Bee.dist3d() < Dee.dist3d() ;number of events",
             2, -0.5, 1.5
@@ -255,14 +334,15 @@ class Worker(fwliteworker.FwliteWorker):
 
     def node_process_event(self, event):
         fs = self.result
+        pre_worker = self.init_wrp.pre_worker
 
         # ivf vertices
-        event.getByLabel(self.collection, h_ivf)
-        ivf_vtx = list(h_ivf.product())
+        vtx_handle = getattr(pre_worker, self.vtx_handle)
+        event.getByLabel(self.collection, vtx_handle)
+        ivf_vtx = list(vtx_handle.product())
 
         # pv
-        event.getByLabel("offlinePrimaryVertices", h_pv)
-        pv = h_pv.product()[0]
+        pv = pre_worker.pv
 
         # flight distances
         for sv in ivf_vtx:
@@ -298,14 +378,13 @@ class Worker(fwliteworker.FwliteWorker):
             )
 
         # matching
-        is_real_data = event.eventAuxiliary().isRealData()
         matched = []
         matched_bd = []
         fin_b = []
         fin_bd = []
-        if not is_real_data:
-            gen_particles = event.gen_particles
-            fin_b = event.fin_b
+        if not pre_worker.is_real_data:
+            gen_particles = pre_worker.gen_particles
+            fin_b = pre_worker.fin_b
 
             matched = matching(
                 ivf_vtx_fd_max2,
@@ -353,7 +432,7 @@ class Worker(fwliteworker.FwliteWorker):
             return
 
         ################################################### fill histograms ###
-        w = event.weight
+        w = pre_worker.weight
         fs.NumIvfVertices.Fill(len(ivf_vtx_fd), w)
 
         if ivf_vtx_fd_pt_sort:
@@ -385,27 +464,35 @@ class Worker(fwliteworker.FwliteWorker):
             fs.VertexMomDR.Fill(dr_mom, w)
 
             # source for fitted histograms
-            fs.VertexMassVsDr.Fill(
-                dr_mom,
-                ivf_vtx_fd_max2[0][0].p4().mass(),
-                w
-            )
-            fs.VertexMassVsDr.Fill(
-                dr_mom,
-                ivf_vtx_fd_max2[1][0].p4().mass(),
-                w
-            )
+            if hasattr(ivf_vtx_fd_max2[0][0], 'originalMass'):
+                mass0 = ivf_vtx_fd_max2[0][0].originalMass()
+                mass1 = ivf_vtx_fd_max2[1][0].originalMass()
+                n_trk0 = ivf_vtx_fd_max2[0][0].originalNTracks()
+                n_trk1 = ivf_vtx_fd_max2[1][0].originalNTracks()
+            else:
+                mass0 = ivf_vtx_fd_max2[0][0].p4().mass()
+                mass1 = ivf_vtx_fd_max2[1][0].p4().mass()
+                n_trk0 = ivf_vtx_fd_max2[0][0].nTracks()
+                n_trk1 = ivf_vtx_fd_max2[1][0].nTracks()
+            fs.VertexMassVsDr.Fill(dr_mom, mass0, w)
+            fs.VertexMassVsDr.Fill(dr_mom, mass1, w)
+            fs.VertexNTracksVsDr.Fill(dr_mom, n_trk0, w)
+            fs.VertexNTracksVsDr.Fill(dr_mom, n_trk1, w)
 
             # fit templates
             if dr_mom < 0.1:
-                near, far = sorted(ivf_vtx_fd_max2, key=lambda v: v[0].dxyz_val)
-                if (near[0].dxyz_val + near[0].dxyz_err <
-                        far[0].dxyz_val - far[0].dxyz_err):
-                    fs.VertexBeeMassTemplate.Fill(near[0].p4().mass(), w)
-                    fs.VertexDeeMassTemplate.Fill(far[0].p4().mass(), w)
+                #b_cand, d_cand = sorted(ivf_vtx_fd_max2, key=lambda v: v[0].dxyz_val)
+                #if (b_cand[0].dxyz_val + b_cand[0].dxyz_err <
+                #        d_cand[0].dxyz_val - d_cand[0].dxyz_err):
+                b_cand, d_cand = sorted(ivf_vtx_fd_max2, key=lambda v: -v[0].p4().mass())
+                if True:
+                    fs.VertexBeeMassTemplate.Fill(b_cand[0].p4().mass(), w)
+                    fs.VertexDeeMassTemplate.Fill(d_cand[0].p4().mass(), w)
+                    fs.VertexBeeNTracksTemplate.Fill(b_cand[0].nTracks(), w)
+                    fs.VertexDeeNTracksTemplate.Fill(d_cand[0].nTracks(), w)
 
         ######################################################### MC histos ###
-        if not is_real_data:
+        if not pre_worker.is_real_data:
             fs.EventWeight.Fill(w)
             fin_b = filter(lambda b: b.p4().pt() > 15.
                                      and abs(b.p4().eta()) < 2.1, fin_b)
@@ -436,15 +523,13 @@ class Worker(fwliteworker.FwliteWorker):
             fs.VtxBeeMass.Fill(bee.p4().M(), w)
             fs.VtxDeeMass.Fill(dee.p4().M(), w)
             vtx_dr = deltaR_cand_to_cand(bee, dee)
-            if (    bee_match_dr < vtx_dr
-                and dee_match_dr < vtx_dr
-                and vtx_dr < 0.1
-            ):
+            if bee_match_dr < vtx_dr < 0.1 and dee_match_dr < vtx_dr:
                 fs.VertexBeeVsDeeDist3D.Fill(dee.dxyz_val, bee.dxyz_val, w)
                 fs.VertexBeeVsDeeDist2D.Fill(dee.dxy_val, bee.dxy_val, w)
                 fs.VertexBeeVsDeeSig3D.Fill(dee.dxyz_val/dee.dxyz_err, bee.dxyz_val/bee.dxyz_err, w)
                 fs.VertexBeeVsDeeSig2D.Fill(dee.dxy_val/dee.dxy_err, bee.dxy_val/bee.dxy_err, w)
                 fs.VertexBeeDistLtDeeDist.Fill(dee.dxyz_val > bee.dxyz_val, w)
+                fs.VertexBeeMassLtDeeMass.Fill(dee.p4().M() > bee.p4().M, w)
                 if (dee.dxyz_val-dee.dxyz_err) > (bee.dxyz_val+bee.dxyz_err):
                     fs.VertexBeeDistLtDeeDistOneSigma.Fill(dee.dxyz_val > bee.dxyz_val, w)
 
@@ -458,20 +543,15 @@ class Worker(fwliteworker.FwliteWorker):
             for _, _, sig in matching_bd_cov:
                 fs.VtxBeeDeeMatchSig.Fill(sig, w)
 
-    def node_finalize(self, init_wrp):
-        if not hasattr(init_wrp, 'announced2'):
-            init_wrp.announced2 = True
-            print "Done:", init_wrp.sample, \
-                init_wrp.event_handle.size(), init_wrp.filenames
-
 
 workers = [
     PreWorker("PreWorker"),
-    #Worker("IvfMerged", "inclusiveMergedVertices"),
-    Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
-    Worker("IvfB2cMerged", "bToCharmDecayVertexMerged"),
-    Worker("IvfB2cMergedFilt", "bToCharmDecayVertexMerged", True),
-    #Worker("IvfB2cMergedFiltCov", "bToCharmDecayVertexMergedFilt", True, True),
+    JetWorker("JetWorker"),
+    #Worker("IvfMerged", "inclusiveMergedVertices", 'h_ivf_normal'),
+    Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered", 'h_ivf_normal'),
+    Worker("IvfMergedFiltCuts", "inclusiveMergedVerticesFiltered", 'h_ivf_normal', True),
+    Worker("IvfB2cMerged", "bToCharmDecayVertexMerged", 'h_ivf_merged'),
+    Worker("IvfB2cMergedCuts", "bToCharmDecayVertexMerged", 'h_ivf_merged', True),
 ]
 
 

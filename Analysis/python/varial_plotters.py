@@ -4,16 +4,30 @@ import varial.tools
 import varial.generators as gen
 
 
+def _fix_legend(wrps):
+    for w in wrps:
+        if 'TTbar' in w.legend:
+            w.legend = 'TTbar'
+        yield w
+jet_plots = varial.tools.FSPlotter(
+    'JetPlots',
+    filter_keyfunc=lambda w: w.analyzer == 'JetWorker',
+    save_lin_log_scale=True,
+    hook_loaded_histos=_fix_legend
+)
+
+
 class DaNormalizer(varial.tools.Tool):
     """Normalize MC cross sections by center of DR distribution. """
     can_reuse = False
 
     def get_histos_n_factor(self):
         mcee, data = next(gen.fs_mc_stack_n_data_sum(
-            lambda w: w.name=='VtxPtLeadEta' and w.analyzer=='IvfB2cMergedFilt'
+            lambda w: w.name == 'SelectedPatJetPt' and w.analyzer == 'JetWorker'
         ))
         dh, mh = data.histo, mcee.histo
-        bins = dh.FindBin(-1.51), dh.FindBin(1.51)
+        #bins = dh.FindBin(-1.51), dh.FindBin(1.51)
+        bins = dh.FindBin(20.1), dh.FindBin(100.)
         factor = dh.Integral(*bins) / mh.Integral(*bins)
         canv = next(gen.canvas(
             ((mcee, data),),
@@ -24,7 +38,7 @@ class DaNormalizer(varial.tools.Tool):
     def run(self):
         # before
         factor, canv = self.get_histos_n_factor()
-        next(gen.save([canv], lambda _: 'before'))
+        next(gen.save_canvas_lin_log([canv], lambda _: 'before'))
 
         # alter samples
         for s in varial.analysis.mc_samples().itervalues():
@@ -35,7 +49,7 @@ class DaNormalizer(varial.tools.Tool):
 
         # after
         _, canv = self.get_histos_n_factor()
-        next(gen.save([canv], lambda _: 'after'))
+        next(gen.save_canvas_lin_log([canv], lambda _: 'after'))
 
         self.result = varial.wrappers.FloatWrapper(
             factor,
@@ -50,6 +64,7 @@ class VtxBeeDeePlotter(varial.tools.FSPlotter):
         wrps = itertools.ifilter(
             lambda w: ('ee' in w.name or 'MatchSig' == w.name)
                       and 'TTbarBDMatch' == w.sample
+                      and 'LtDee' not in w.name
                       and type(w.histo) == ROOT.TH1D,
             wrps
         )
@@ -83,41 +98,29 @@ dist_plotter = varial.tools.FSPlotter(
     filter_keyfunc=lambda w: (w.name in [
         'VertexMassVsDr',
         'VertexBeeDistLtDeeDist',
+        'VertexBeeMassLtDeeMass',
         'VertexBeeDistLtDeeDistOneSigma',
     ] or 'VertexBeeVsDee' in w.name)
     and w.sample == 'TTbarBDMatch'
 )
-all_plotters = [
-    stack_plotter,
-    beedee_plotter,
-    dist_plotter,
-]
 
-chain_ivf_merged = varial.tools.ToolChain(
-    'IvfMerged', [
-        varial.tools.FSHistoLoader(None, lambda w: 'IvfMerged' == w.analyzer),
-    ] + all_plotters
-)
-chain_ivf_merged_filt = varial.tools.ToolChain(
-    'IvfMergedFilt', [
-        varial.tools.FSHistoLoader(None, lambda w: 'IvfMergedFilt'==w.analyzer),
-    ] + all_plotters
-)
-chain_ivf_b2c_merged = varial.tools.ToolChain(
-    'IvfB2cMerged', [
-        varial.tools.FSHistoLoader(None, lambda w: 'IvfB2cMerged'==w.analyzer),
-    ] + all_plotters
-)
-chain_ivf_b2c_merged_filt = varial.tools.ToolChain(
-    'IvfB2cMergedFilt', [
-        varial.tools.FSHistoLoader(None, lambda w: 'IvfB2cMergedFilt'==w.analyzer),
-    ] + all_plotters
-)
-chain_ivf_b2c_merged_filt_cov = varial.tools.ToolChain(
-    'IvfB2cMergedFiltCov', [
-        varial.tools.FSHistoLoader(None, lambda w: 'IvfB2cMergedFiltCov'==w.analyzer),
-    ] + all_plotters
-)
+
+def _mkchn(analyzer):
+    return varial.tools.ToolChain(
+        analyzer, [
+            varial.tools.FSHistoLoader(None, lambda w: analyzer == w.analyzer),
+            stack_plotter,
+            beedee_plotter,
+            dist_plotter,
+        ]
+    )
+
+chain_ivf_merged = _mkchn('IvfMerged')
+chain_ivf_merged_filt = _mkchn('IvfMergedFilt')
+chain_ivf_merged_filt_cuts = _mkchn('IvfMergedFiltCuts')
+chain_ivf_b2c_merged = _mkchn('IvfB2cMerged')
+chain_ivf_b2c_merged_cuts = _mkchn('IvfB2cMergedCuts')
+chain_ivf_b2c_merged_filt_cov = _mkchn('IvfB2cMergedFiltCov')
 
 
 

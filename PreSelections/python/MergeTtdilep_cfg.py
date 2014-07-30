@@ -16,6 +16,15 @@ process.out = cms.OutputModule("PoolOutputModule",
         'keep *Vertex*_*_*_*',
         'keep *_*DistInfo_*_*',
         'keep *_*Weight*_*_*',
+        'keep *_selectedPatJetsPF__*',
+        'drop *_bToCharmDecayVertexMerged__PAT',
+        'drop *_generalV0Candidates_*_*',
+        'drop *_*TagInfos_*_*',
+        'drop *_trackVertexArbitrator_*_*',
+        'drop *_vertexMerger_*_*',
+        'drop *_inclusiveVertexFinder_*_*',
+        'drop *_offlinePrimaryVerticesWithBS_*_*',
+        'drop *_goodOfflinePrimaryVertices_*_*',
     ),
     fileName=cms.untracked.string('merging.root'),
     SelectEvents=cms.untracked.PSet(SelectEvents=cms.vstring('p')),
@@ -35,8 +44,14 @@ process.twoVtxFilter = cms.EDFilter("VertexCountFilter",
     maxNumber=cms.uint32(999)
 )
 
+import BTagDeltaR.My2ndVtxConfig.My2ndVtxConfig_cff as my_sv
+process.extend(my_sv)
+process.bToCharmDecayVertexMerged.storeParentsRefs = cms.untracked.bool(True)
+
+
 process.p = cms.Path(
     process.twoVtxFilter *
-    process.puWeight
+    process.puWeight *
+    process.bToCharmDecayVertexMerged
 )
 
