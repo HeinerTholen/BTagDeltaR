@@ -17,7 +17,7 @@ jet_plots = varial.tools.FSPlotter(
 )
 
 
-class DaNormalizer(varial.tools.Tool):
+class SampleNormalizer(varial.tools.Tool):
     """Normalize MC cross sections by center of DR distribution. """
     can_reuse = False
 

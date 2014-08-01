@@ -8,17 +8,17 @@ import varial.generators as gen
 ##################################################### convenience functions ###
 legend_tags = ["real", "fakeGamma", "fakeOther", "fake"]
 re_bins = list(i / 10. for i in xrange(0, 100, 2))
-#re_bins = list(i / 10. for i in xrange(14, 30, 2))
+#re_bins = list(i / 10. for i in xrange(10, 60, 2))
+#re_bins = list(i - .5 for i in xrange(0, 21))
 
 
-
-def gen_set_legend_and_color(wrps):
+def gen_set_legend_and_color(wrps, sig_token, sig="Signal", bg="Background"):
     for w in wrps:
-        if "Bee" in w.name:
-            name = "B Template"
+        if sig_token in w.name:
+            name = sig
             col = ROOT.kSpring - 4
         else:
-            name = "D Template"
+            name = bg
             col = ROOT.kRed + 2
         w.histo.SetTitle(name)
         w.legend = name
@@ -117,11 +117,11 @@ class Fitter(object):
 
 
 ############################################################### Loading ... ###
-class MassHistoSlicer(varial.tools.Tool):
+class HistoSlicer(varial.tools.Tool):
 
-    def __init__(self, name=None, slices=None):
-        super(MassHistoSlicer, self).__init__(name)
-        self.slices = slices or [(0, 8), (10, 80)]
+    def __init__(self, slices, name=None):
+        super(HistoSlicer, self).__init__(name)
+        self.slices = slices
 
     def run(self):
         @varial.history.track_history
@@ -147,33 +147,38 @@ class MassHistoSlicer(varial.tools.Tool):
 
 
 class FitHistosCreator(varial.tools.Tool):
-    """Result: [fitted_histo, template1, template2, ...]"""
+
+    def __init__(self, template_name, signal_name, name=None):
+        super(FitHistosCreator, self).__init__(name)
+        self.template_name = template_name
+        self.signal_name = signal_name
 
     def run(self):
-        # grab templates
-        tmplts = itertools.ifilter(
-            lambda w: 'Template' in w.name,
+        # input
+        inp = itertools.ifilter(
+            lambda w: self.template_name in w.name,
             self.lookup("../FSHistoLoader")
         )
-        tmplts = gen.group(tmplts)
-        tmplts = gen.mc_stack_n_data_sum(tmplts)
-        tmplts = itertools.chain.from_iterable(tmplts)
-        tmplts = (
+        inp = itertools.chain(inp, self.lookup('../HistoSlicer'))
+        inp = gen.sort(inp)
+        inp = gen.group(inp)
+        inp = gen.mc_stack_n_data_sum(inp)
+        inp = itertools.chain.from_iterable(inp)
+        inp = (
             varial.wrappers.HistoWrapper(w.histo, **w.all_info())
-            for w in tmplts
+            for w in inp
         )
-        tmplts = gen.gen_rebin(tmplts, re_bins)
-        tmplts = gen_set_legend_and_color(tmplts)
+        inp = gen.gen_rebin(inp, re_bins)
+        inp = list(inp)
+        assert(len(inp) == 3)
+
+        # grab templates
+        tmplts = inp[1:3]
+        tmplts = gen_set_legend_and_color(tmplts, self.signal_name)
         tmplts = list(tmplts)
 
         # grab fitted histogram
-        fitted = self.lookup('../MassHistoSlicer')
-        fitted = gen.sort(fitted)
-        fitted = gen.group(fitted)
-        fitted = gen.mc_stack_n_data_sum(fitted)
-        fitted = itertools.chain.from_iterable(fitted)
-        fitted = gen.gen_rebin(fitted, re_bins)
-        fitted = [next(fitted)]
+        fitted = inp[0:1]
         if not fitted[0].is_data:
             fitted[0].legend = 'Pseudo-Data'
 
@@ -189,8 +194,9 @@ class FitHistosCreator(varial.tools.Tool):
 
 ################################################################## Fit Tool ###
 class TemplateFitTool(varial.tools.FSPlotter):
-    def __init__(self, name=None):
-        super(TemplateFitTool, self).__init__(name)
+    def __init__(self, input_result_path, name=None):
+        super(TemplateFitTool, self).__init__(
+            name, input_result_path=input_result_path)
         self.mc_tmplts = None
         self.fitted = None
         self.fitbox_bounds = 0.63, 0.93, 0.60
@@ -255,7 +261,7 @@ class TemplateFitTool(varial.tools.FSPlotter):
     def set_up_content(self):
         self.result.fitter = self.fitter.__class__.__name__
 
-        wrps = self.lookup('../FitHistosCreator')
+        wrps = self.lookup(self.input_result_path)
         self.fitted = wrps.pop(0)
         self.mc_tmplts = wrps
         self.n_templates = len(self.mc_tmplts)
@@ -285,45 +291,65 @@ class TemplateFitTool(varial.tools.FSPlotter):
 
 
 ############################################################ Fit ToolChains ###
-test_fit_chain = varial.tools.ToolChain(
+#b_tmpl = "VertexBeeMassTemplate"; d_tmpl = "VertexDeeMassTemplate"; fttd = 'VertexMassVsDr'
+#b_tmpl = "VertexBeeNTracksTemplate"; d_tmpl = "VertexDeeNTracksTemplate"; fttd = 'VertexNTracksVsDr'
+
+fitter_chain = varial.tools.ToolChain(
     'TestFitChain', [
-        varial.tools.FSHistoLoader(                         # HistoLoader
+        varial.tools.FSHistoLoader(
             filter_keyfunc=lambda w: (w.name, w.analyzer) in [
-                ('VertexBeeMassTemplate', 'IvfMergedFilt'),
                 ('VertexDeeMassTemplate', 'IvfMergedFilt'),
                 ('VertexMassVsDr', 'IvfB2cMerged'),
             ] and not w.is_data
         ),
-        MassHistoSlicer(                                    # MassHistoSlice
-            slices=[(0, 8)]
+        HistoSlicer([(0, 4), (10, 80)]),
+        FitHistosCreator('Template', 'VertexMassVsDr'),
+        varial.tools.FSPlotter(
+            'TemplatesAndFittedHisto',
+            input_result_path='../FitHistosCreator',
         ),
-        FitHistosCreator(),                                 # FitHistosCreator
-        varial.tools.FSPlotter(input_result_path='../FitHistosCreator'),
-        TemplateFitTool(),                                  # TemplateFitTool
+        TemplateFitTool(input_result_path='../FitHistosCreator'),
     ]
 )
 
+#
+# fitter_chain = varial.tools.ToolChain(
+#     'VtxMassFitter', [
+#         varial.tools.FSHistoLoader(
+#             filter_keyfunc=lambda w: w.name in [b_tmpl, d_tmpl, fttd]
+#         ),
+#         HistoSlicer(),
+#         varial.tools.FSPlotter(
+#             'TemplatePlots',
+#             filter_keyfunc=lambda w: 'Template' in w.name
+#                                      and 'IvfMergedFilt' in w.analyzer
+#         ),
+#         varial.tools.FSPlotter(
+#             'MassSlicePlots',
+#             input_result_path="../HistoSlicer",
+#             hook_loaded_histos=gen.sort
+#         ),
+#         test_fit_chain
+#     ]
+# )
+#
 
-fitter_chain = varial.tools.ToolChain(
-    'VtxMassFitter', [
+fitter_chain_sum = varial.tools.ToolChain(
+    'TestFitChainSum', [
         varial.tools.FSHistoLoader(
-            filter_keyfunc=lambda w: w.name in [
-                'VertexBeeMassTemplate',
-                'VertexDeeMassTemplate',
-                'VertexMassVsDr'
-            ]
+            filter_keyfunc=lambda w: (w.name, w.analyzer) in [
+                ("VertexMassSumTemplate", 'IvfMergedFilt'),
+                ('VertexMassSumVsDr', 'IvfB2cMerged'),
+            ] and not w.is_data
         ),
-        MassHistoSlicer(),
+        HistoSlicer([(0, 4), (10, 80)]),
+        FitHistosCreator('VertexMassSumTemplate', 'VertexMassSumVsDr'),
         varial.tools.FSPlotter(
-            'TemplatePlots',
-            filter_keyfunc=lambda w: 'Template' in w.name
-                                     and 'IvfMergedFilt' in w.analyzer
+            'TemplatesAndFittedHisto',
+            input_result_path='../FitHistosCreator',
+            hook_setup_histos=itertools.chain.from_iterable
         ),
-        varial.tools.FSPlotter(
-            'MassSlicePlots',
-            input_result_path="../MassHistoSlicer",
-            hook_loaded_histos=gen.sort
-        ),
-        test_fit_chain
+        TemplateFitTool(input_result_path='../FitHistosCreator'),
     ]
 )
+

@@ -67,6 +67,7 @@ class PreWorker(fwliteworker.FwliteWorker):
             self.weight *= self.h_pu_weight.product()[0]
 
     def node_finalize(self, init_wrp):
+        del init_wrp.pre_worker
         print "Done:", init_wrp.sample, \
             init_wrp.event_handle.size(), init_wrp.filenames
 
@@ -161,6 +162,19 @@ class Worker(fwliteworker.FwliteWorker):
             100, 0., 10.
         )
 
+        # Mass Sum Template Fit
+        fs.VertexMassSumVsDr = ROOT.TH2D(
+            'VertexMassSumVsDr',
+            ';Vertex #Delta R; Vertex Mass',
+            100, 0., 5.,
+            100, 0., 10.
+        )
+        fs.make(
+            'VertexMassSumTemplate',
+            ";B vertex candidate mass; number of events",
+            100, 0., 10.
+        )
+
         # NTracks Template Fit
         fs.VertexNTracksVsDr = ROOT.TH2D(
             'VertexNTracksVsDr',
@@ -176,6 +190,19 @@ class Worker(fwliteworker.FwliteWorker):
         fs.make(
             'VertexDeeNTracksTemplate',
             ";D vertex candidate number of tracks; number of events",
+            21, -.5, 20.5
+        )
+
+        # NTracks Sum Template Fit
+        fs.VertexNTracksSumVsDr = ROOT.TH2D(
+            'VertexNTracksSumVsDr',
+            ';Vertex #Delta R; Vertex number of tracks',
+            100, 0., 5.,
+            21, -.5, 20.5
+        )
+        fs.make(
+            'VertexNTracksSumTemplate',
+            ";B vertex candidate number of tracks; number of events",
             21, -.5, 20.5
         )
 
@@ -476,8 +503,10 @@ class Worker(fwliteworker.FwliteWorker):
                 n_trk1 = ivf_vtx_fd_max2[1][0].nTracks()
             fs.VertexMassVsDr.Fill(dr_mom, mass0, w)
             fs.VertexMassVsDr.Fill(dr_mom, mass1, w)
+            fs.VertexMassSumVsDr.Fill(dr_mom, mass0 + mass1, w)
             fs.VertexNTracksVsDr.Fill(dr_mom, n_trk0, w)
             fs.VertexNTracksVsDr.Fill(dr_mom, n_trk1, w)
+            fs.VertexNTracksSumVsDr.Fill(dr_mom, n_trk0 + n_trk1, w)
 
             # fit templates
             if dr_mom < 0.1:
@@ -486,10 +515,16 @@ class Worker(fwliteworker.FwliteWorker):
                 #        d_cand[0].dxyz_val - d_cand[0].dxyz_err):
                 b_cand, d_cand = sorted(ivf_vtx_fd_max2, key=lambda v: -v[0].p4().mass())
                 if True:
-                    fs.VertexBeeMassTemplate.Fill(b_cand[0].p4().mass(), w)
-                    fs.VertexDeeMassTemplate.Fill(d_cand[0].p4().mass(), w)
-                    fs.VertexBeeNTracksTemplate.Fill(b_cand[0].nTracks(), w)
-                    fs.VertexDeeNTracksTemplate.Fill(d_cand[0].nTracks(), w)
+                    b_mass = b_cand[0].p4().mass()
+                    b_ntrk = b_cand[0].nTracks()
+                    d_mass = d_cand[0].p4().mass()
+                    d_ntrk = d_cand[0].nTracks()
+                    fs.VertexBeeMassTemplate.Fill(b_mass, w)
+                    fs.VertexDeeMassTemplate.Fill(d_mass, w)
+                    fs.VertexMassSumTemplate.Fill(b_mass + d_mass, w)
+                    fs.VertexBeeNTracksTemplate.Fill(b_ntrk, w)
+                    fs.VertexDeeNTracksTemplate.Fill(d_ntrk, w)
+                    fs.VertexNTracksSumTemplate.Fill(b_ntrk + d_ntrk, w)
 
         ######################################################### MC histos ###
         if not pre_worker.is_real_data:
