@@ -89,6 +89,7 @@ stack_plotter = varial.tools.FSPlotter(
         'DrMomFinalBs',
         'VertexDrFdMomDiff',
         'EventWeight',
+        'VtxNSharedTracks',
     ] 
     or 'VtxPtLead' in w.name
     or 'VtxPtSubLead' in w.name
@@ -103,24 +104,36 @@ dist_plotter = varial.tools.FSPlotter(
     ] or 'VertexBeeVsDee' in w.name)
     and w.sample == 'TTbarBDMatch'
 )
+dist_plotter2 = varial.tools.FSPlotter(
+    'MassVsDrPlotter',
+    filter_keyfunc=lambda w: (w.name in [
+        'VertexMassVsDr',
+    ]),
+    #hook_loaded_histos=varial.generators.debug_printer()
+)
 
 
 def _mkchn(analyzer):
-    return varial.tools.ToolChain(
+    return varial.tools.ToolChainIndie(
         analyzer, [
             varial.tools.FSHistoLoader(None, lambda w: analyzer == w.analyzer),
             stack_plotter,
             beedee_plotter,
             dist_plotter,
+            dist_plotter2,
         ]
     )
 
-chain_ivf_merged = _mkchn('IvfMerged')
-chain_ivf_merged_filt = _mkchn('IvfMergedFilt')
-chain_ivf_merged_filt_cuts = _mkchn('IvfMergedFiltCuts')
-chain_ivf_b2c_merged = _mkchn('IvfB2cMerged')
-chain_ivf_b2c_merged_cuts = _mkchn('IvfB2cMergedCuts')
-chain_ivf_b2c_merged_filt_cov = _mkchn('IvfB2cMergedFiltCov')
+chains = [
+    #_mkchn('IvfMerged'),
+    _mkchn('IvfMergedFilt'),
+    _mkchn('IvfMergedFiltLt0p2'),
+    _mkchn('IvfMergedFiltGt1p0'),
+    _mkchn('IvfMergedFiltCuts'),
+    _mkchn('IvfB2cMerged'),
+    _mkchn('IvfB2cMergedCuts'),
+    #_mkchn('IvfB2cMergedFiltCov')
+]
 
 
 

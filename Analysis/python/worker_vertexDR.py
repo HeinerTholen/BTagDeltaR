@@ -23,7 +23,7 @@ h_jets = Handle("vector<pat::Jet>")
 def get_tuples_with_flight_dirs(vertices, primary_vertex):
     """returns [(sv1, fd1), (sv2, fd2), ...]"""
     def mkfd(vtx):
-        pv, sv = primary_vertex, vtx.position()
+        pv, sv = primary_vertex.position(), vtx.position()
         return ROOT.Math.XYZVector(
             sv.x() - pv.x(),
             sv.y() - pv.y(),
@@ -32,6 +32,7 @@ def get_tuples_with_flight_dirs(vertices, primary_vertex):
     return list((sv, mkfd(sv)) for sv in vertices)
 
 
+############################################################ Initialization ###
 class PreWorker(fwliteworker.FwliteWorker):
     def node_setup(self, init_wrp):
         print "Starting:", init_wrp.sample, \
@@ -57,6 +58,18 @@ class PreWorker(fwliteworker.FwliteWorker):
         self.pv = self.h_pv.product()[0]
         event.getByLabel("selectedPatJetsPF", self.h_jets)
         self.jets = h_jets.product()
+
+        # prepare ivf collections
+        def mk_ivf_coll(label, handle):
+            event.getByLabel(label, handle)
+            coll = list(handle.product())
+            for sv in coll:  # flight distances
+                sv.__dict__.update(get_2d_3d_distances(self.pv, sv))
+            coll = get_tuples_with_flight_dirs(coll, self.pv)
+            setattr(self, label, coll)
+        mk_ivf_coll("inclusiveMergedVerticesFiltered", self.h_ivf_normal)
+        mk_ivf_coll("bToCharmDecayVertexMerged", self.h_ivf_merged)
+
         self.is_real_data = "Run" in self.init_wrp.sample
         if not self.is_real_data:
             event.getByLabel("genParticles", self.h_gen_particles)
@@ -72,6 +85,7 @@ class PreWorker(fwliteworker.FwliteWorker):
             init_wrp.event_handle.size(), init_wrp.filenames
 
 
+############################################### Jet Plots for Normalization ###
 class JetWorker(fwliteworker.FwliteWorker):
     def node_setup(self, init_wrp):
         self.init_wrp = init_wrp
@@ -102,14 +116,14 @@ class JetWorker(fwliteworker.FwliteWorker):
             fs.SelectedPatJetEta.Fill(j.eta(), w)
 
 
+########################################### Vertex Selection and Histograms ###
 class Worker(fwliteworker.FwliteWorker):
-    def __init__(self, name, collection, vtx_handle, filter_vtx=False, dee_cov_match=False):
+    def __init__(self, name, collection, filter_vtx=None, dee_cov_match=False):
         super(Worker, self).__init__(name)
         self.collection = collection
         self.n_matches_required = -1
         self.filter_vtx = filter_vtx
         self.dee_cov_match = dee_cov_match
-        self.vtx_handle = vtx_handle
 
     def node_setup(self, init_wrp):
         self.init_wrp = init_wrp
@@ -123,6 +137,8 @@ class Worker(fwliteworker.FwliteWorker):
         elif 'TTbarBDMatch' == init_wrp.sample:
             self.n_matches_required = 3
         fs = self.result
+
+        # Delta R plots
         fs.make(
             "NumIvfVertices",
             ";number of IVF vertices;number of events",
@@ -204,6 +220,13 @@ class Worker(fwliteworker.FwliteWorker):
             'VertexNTracksSumTemplate',
             ";B vertex candidate number of tracks; number of events",
             21, -.5, 20.5
+        )
+
+        # NSharedTracks
+        fs.make(
+            'VtxNSharedTracks',
+            ';number of shared tracks; number of events',
+            11, -.5, 10.5
         )
 
         # control plots
@@ -364,36 +387,9 @@ class Worker(fwliteworker.FwliteWorker):
         pre_worker = self.init_wrp.pre_worker
 
         # ivf vertices
-        vtx_handle = getattr(pre_worker, self.vtx_handle)
-        event.getByLabel(self.collection, vtx_handle)
-        ivf_vtx = list(vtx_handle.product())
-
-        # pv
-        pv = pre_worker.pv
-
-        # flight distances
-        for sv in ivf_vtx:
-            sv.__dict__.update(get_2d_3d_distances(pv, sv))
-
-        # flight directions
-        ivf_vtx_fd = get_tuples_with_flight_dirs(
-            ivf_vtx, pv
-        )
+        ivf_vtx_fd = getattr(pre_worker, self.collection)
         if self.filter_vtx:
-            ivf_vtx_fd = filter(
-                lambda v: (
-                    abs(v[0].p4().eta()) < 2
-                    and v[0].p4().pt() > 8
-                    and 6.5 > v[0].p4().mass() > 1.4
-                    and v[0].nTracks() > 2
-                    and deltaR_vec_to_vec(v[1], v[0].p4()) < 0.1
-                    and v[0].dxy_val < 2.5
-                    and (v[0].dxy_val / v[0].dxy_err) > 3.
-                    and (v[0].dxyz_val / v[0].dxyz_err) > 5.
-                ),
-                ivf_vtx_fd
-            )
-
+            ivf_vtx_fd = self.filter_vtx(ivf_vtx_fd)
         ivf_vtx_fd_pt_sort = sorted(ivf_vtx_fd, key=lambda v: -v[0].p4().pt())
 
         # if more than two ivf vtx, take the ones closest together
@@ -526,6 +522,21 @@ class Worker(fwliteworker.FwliteWorker):
                     fs.VertexDeeNTracksTemplate.Fill(d_ntrk, w)
                     fs.VertexNTracksSumTemplate.Fill(b_ntrk + d_ntrk, w)
 
+
+            # set comparator for tracks
+            ROOT.reco.Track.__eq__ = lambda a, b: \
+                round(a.pt(), 10) == round(b.pt(), 10) \
+                and round(a.eta(), 10) == round(b.eta(), 10)
+            ROOT.reco.Track.__hash__ = lambda a: \
+                hash(round(a.pt() + a.eta(), 10))
+
+            # n shared tracks
+            all_tracks = list(t
+                              for v in ivf_vtx_fd_max2
+                              for t in v[0].refittedTracks())
+            unique_tracks = set(all_tracks)
+            fs.VtxNSharedTracks.Fill(len(all_tracks) - len(unique_tracks), w)
+
         ######################################################### MC histos ###
         if not pre_worker.is_real_data:
             fs.EventWeight.Fill(w)
@@ -579,14 +590,38 @@ class Worker(fwliteworker.FwliteWorker):
                 fs.VtxBeeDeeMatchSig.Fill(sig, w)
 
 
+############################################################ Vertex Filters ###
+vtx_cuts = lambda vtx: filter(lambda v: (
+    abs(v[0].p4().eta()) < 2
+    and v[0].p4().pt() > 8
+#    and 6.5 > v[0].p4().mass() > 1.4
+    and v[0].nTracks() > 2
+    and deltaR_vec_to_vec(v[1], v[0].p4()) < 0.1
+    and v[0].dxy_val < 2.5
+    and (v[0].dxy_val / v[0].dxy_err) > 3.
+    and (v[0].dxyz_val / v[0].dxyz_err) > 5.
+), vtx)
+
+
+has_dr_lt = lambda vtx_fd, bound: any(
+    deltaR_cand_to_cand(a[0], b[0]) < bound
+    for a, b in itertools.combinations(vtx_fd, 2)
+)
+vtx_dr_lt_0p2 = lambda vtx: vtx if has_dr_lt(vtx, 0.2) else list()
+vtx_no_dr_lt_1p0 = lambda vtx: vtx if not has_dr_lt(vtx, 1.0) else list()
+
+
+####################################################### Worker Organization ###
 workers = [
     PreWorker("PreWorker"),
     JetWorker("JetWorker"),
-    #Worker("IvfMerged", "inclusiveMergedVertices", 'h_ivf_normal'),
-    Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered", 'h_ivf_normal'),
-    Worker("IvfMergedFiltCuts", "inclusiveMergedVerticesFiltered", 'h_ivf_normal', True),
-    Worker("IvfB2cMerged", "bToCharmDecayVertexMerged", 'h_ivf_merged'),
-    Worker("IvfB2cMergedCuts", "bToCharmDecayVertexMerged", 'h_ivf_merged', True),
+    #Worker("IvfMerged", "inclusiveMergedVertices"),
+    Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
+    Worker("IvfMergedFiltLt0p2", 'inclusiveMergedVerticesFiltered', vtx_dr_lt_0p2),
+    Worker("IvfMergedFiltGt1p0", 'inclusiveMergedVerticesFiltered', vtx_no_dr_lt_1p0),
+    Worker("IvfMergedFiltCuts", "inclusiveMergedVerticesFiltered", vtx_cuts),
+    Worker("IvfB2cMerged", "bToCharmDecayVertexMerged"),
+    Worker("IvfB2cMergedCuts", "bToCharmDecayVertexMerged", vtx_cuts),
 ]
 
 

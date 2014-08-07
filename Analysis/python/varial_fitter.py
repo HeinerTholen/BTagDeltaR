@@ -294,6 +294,30 @@ class TemplateFitTool(varial.tools.FSPlotter):
 #b_tmpl = "VertexBeeMassTemplate"; d_tmpl = "VertexDeeMassTemplate"; fttd = 'VertexMassVsDr'
 #b_tmpl = "VertexBeeNTracksTemplate"; d_tmpl = "VertexDeeNTracksTemplate"; fttd = 'VertexNTracksVsDr'
 
+slices = [(0, 4), (10, 80)]
+
+fitter_plots = varial.tools.ToolChain(
+    'VtxMassFitterPlots', [
+        varial.tools.FSHistoLoader(
+            filter_keyfunc=lambda w: w.name in ['VertexBeeMassTemplate',
+                                                'VertexDeeMassTemplate',
+                                                'VertexMassVsDr']
+        ),
+        HistoSlicer(slices),
+        varial.tools.FSPlotter(
+            'TemplatePlots',
+            filter_keyfunc=lambda w: 'Template' in w.name
+                                     and 'IvfMergedFilt' in w.analyzer
+        ),
+        varial.tools.FSPlotter(
+            'MassSlicePlots',
+            input_result_path="../HistoSlicer",
+            hook_loaded_histos=gen.sort
+        )
+    ]
+)
+
+
 fitter_chain = varial.tools.ToolChain(
     'TestFitChain', [
         varial.tools.FSHistoLoader(
@@ -302,7 +326,7 @@ fitter_chain = varial.tools.ToolChain(
                 ('VertexMassVsDr', 'IvfB2cMerged'),
             ] and not w.is_data
         ),
-        HistoSlicer([(0, 4), (10, 80)]),
+        HistoSlicer(slices),
         FitHistosCreator('Template', 'VertexMassVsDr'),
         varial.tools.FSPlotter(
             'TemplatesAndFittedHisto',
@@ -312,27 +336,6 @@ fitter_chain = varial.tools.ToolChain(
     ]
 )
 
-#
-# fitter_chain = varial.tools.ToolChain(
-#     'VtxMassFitter', [
-#         varial.tools.FSHistoLoader(
-#             filter_keyfunc=lambda w: w.name in [b_tmpl, d_tmpl, fttd]
-#         ),
-#         HistoSlicer(),
-#         varial.tools.FSPlotter(
-#             'TemplatePlots',
-#             filter_keyfunc=lambda w: 'Template' in w.name
-#                                      and 'IvfMergedFilt' in w.analyzer
-#         ),
-#         varial.tools.FSPlotter(
-#             'MassSlicePlots',
-#             input_result_path="../HistoSlicer",
-#             hook_loaded_histos=gen.sort
-#         ),
-#         test_fit_chain
-#     ]
-# )
-#
 
 fitter_chain_sum = varial.tools.ToolChain(
     'TestFitChainSum', [
@@ -342,7 +345,7 @@ fitter_chain_sum = varial.tools.ToolChain(
                 ('VertexMassSumVsDr', 'IvfB2cMerged'),
             ] and not w.is_data
         ),
-        HistoSlicer([(0, 4), (10, 80)]),
+        HistoSlicer(slices),
         FitHistosCreator('VertexMassSumTemplate', 'VertexMassSumVsDr'),
         varial.tools.FSPlotter(
             'TemplatesAndFittedHisto',
