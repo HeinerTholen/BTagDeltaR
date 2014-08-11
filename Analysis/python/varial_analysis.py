@@ -10,6 +10,7 @@ import varial.settings as s
 import ttdilep_samples
 import varial_plotters
 import varial_fitter
+import varial_result
 
 s.rootfile_postfixes = ['.root', '.png']
 fwlite_exe = os.path.join(
@@ -33,6 +34,7 @@ tc = varial.tools.ToolChain(
         varial_fitter.fitter_plots,
         varial_fitter.fitter_chain,
         varial_fitter.fitter_chain_sum,
+        varial_result.summary_chain,
         varial.tools.SimpleWebCreator(),
         varial.tools.CopyTool(
             os.path.join(os.environ['HOME'], 'www/btagdr/ana/')),

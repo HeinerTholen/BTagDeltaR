@@ -90,6 +90,7 @@ stack_plotter = varial.tools.FSPlotter(
         'VertexDrFdMomDiff',
         'EventWeight',
         'VtxNSharedTracks',
+        'LostBeeMatchNDee',
     ] 
     or 'VtxPtLead' in w.name
     or 'VtxPtSubLead' in w.name
@@ -109,7 +110,6 @@ dist_plotter2 = varial.tools.FSPlotter(
     filter_keyfunc=lambda w: (w.name in [
         'VertexMassVsDr',
     ]),
-    #hook_loaded_histos=varial.generators.debug_printer()
 )
 
 

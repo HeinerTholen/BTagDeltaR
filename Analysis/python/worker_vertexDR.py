@@ -118,12 +118,11 @@ class JetWorker(fwliteworker.FwliteWorker):
 
 ########################################### Vertex Selection and Histograms ###
 class Worker(fwliteworker.FwliteWorker):
-    def __init__(self, name, collection, filter_vtx=None, dee_cov_match=False):
+    def __init__(self, name, collection, filter_vtx=None):
         super(Worker, self).__init__(name)
         self.collection = collection
         self.n_matches_required = -1
         self.filter_vtx = filter_vtx
-        self.dee_cov_match = dee_cov_match
 
     def node_setup(self, init_wrp):
         self.init_wrp = init_wrp
@@ -222,7 +221,7 @@ class Worker(fwliteworker.FwliteWorker):
             21, -.5, 20.5
         )
 
-        # NSharedTracks
+        # Misc
         fs.make(
             'VtxNSharedTracks',
             ';number of shared tracks; number of events',
@@ -419,42 +418,28 @@ class Worker(fwliteworker.FwliteWorker):
 
             if len(matched) == 1:
                 # try to match D hadron as well
-                fin_b_match = matched[0][1]
-                fin_d = final_d_hadrons(get_all_daughters(
-                    gen_particles, [fin_b_match]))
-                fin_bd = [fin_b_match] + fin_d
-                if self.dee_cov_match:
-                    matched_bd = matching(
-                        ivf_vtx_fd_max2,
-                        fin_bd,
-                        lambda a, b: covariance_significance(a[0], b),
-                        10.
-                    )
-                else:
-                    matched_bd = matching(
-                        ivf_vtx_fd_max2,
-                        fin_bd,
+                fin_b_vtx, fin_b_gp, _ = matched[0]
+                fin_d = final_d_hadrons(get_all_daughters(gen_particles, [fin_b_gp]))
+                other_vtxs = list(v for v in ivf_vtx_fd_max2 if v != fin_b_vtx)
+                if other_vtxs:
+                    matched_d = matching(
+                        other_vtxs,
+                        fin_d,
                         lambda a, b: deltaR_cand_to_cand(a[0], b),
                         DR_for_matching
                     )
-
-                # discard, if b not present anymore, else sort b to front
-                if fin_b_match not in (gp for _, gp, _ in matched_bd):
-                    matched_bd = []
-                elif 2 == len(matched_bd):
-                    if matched_bd[0][1] != fin_b_match:
-                        dee, bee = matched_bd
-                        matched_bd = bee, dee
+                    matched_bd = matched + matched_d
 
         n_matched = len(matched)
         if 1 == n_matched and 2 == len(matched_bd):
             n_matched = 3
 
+        ################################################### fill histograms ###
+
         # check for right ttbar or different sample
         if self.n_matches_required not in (-1, n_matched):
             return
 
-        ################################################### fill histograms ###
         w = pre_worker.weight
         fs.NumIvfVertices.Fill(len(ivf_vtx_fd), w)
 

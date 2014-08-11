@@ -1,13 +1,15 @@
 import itertools
 import ROOT
+import varial.analysis
 import varial.tools
 import varial.history
 import varial.generators as gen
+import varial.operations as op
 
 
 ##################################################### convenience functions ###
 legend_tags = ["real", "fakeGamma", "fakeOther", "fake"]
-re_bins = list(i / 10. for i in xrange(0, 100, 2))
+re_bins = list(i / 10. for i in xrange(0, 100, 5))
 #re_bins = list(i / 10. for i in xrange(10, 60, 2))
 #re_bins = list(i - .5 for i in xrange(0, 21))
 
@@ -142,12 +144,11 @@ class HistoSlicer(varial.tools.Tool):
             self.lookup('../FSHistoLoader')
         )
         wrps = slice_generator(wrps)
-        wrps = gen.gen_rebin(wrps, re_bins)
+        #wrps = gen.gen_rebin(wrps, re_bins)
         self.result = list(wrps)
 
 
 class FitHistosCreator(varial.tools.Tool):
-
     def __init__(self, template_name, signal_name, name=None):
         super(FitHistosCreator, self).__init__(name)
         self.template_name = template_name
@@ -192,7 +193,72 @@ class FitHistosCreator(varial.tools.Tool):
         self.result = fitted + tmplts
 
 
+class FitHistosCreatorSum(varial.tools.Tool):
+    def __init__(self, run_on_mc, name=None):
+        super(FitHistosCreatorSum, self).__init__(name)
+        self.run_on_mc = run_on_mc
+
+    def run(self):
+        inp = self.lookup('../HistoSlicer')
+        total = gen.sort(inp)
+        total = gen.group(total)
+        total = gen.mc_stack_n_data_sum(total)
+        total = itertools.chain.from_iterable(total)
+        total = (
+            varial.wrappers.HistoWrapper(w.histo, **w.all_info())
+            for w in total
+        )
+        total = filter(lambda w: w.is_data != self.run_on_mc, total)
+        #fitted, highDR = sorted(total, key=lambda w: 'to80' in w.name)
+        fitted = total[0]
+
+        bee_tmplt = next(
+            gen.gen_norm_to_data_lumi(
+                filter(lambda w: 'to80' not in w.name
+                                 and w.sample == 'TTbarTwoMatch', inp)))
+        dee_tmplt = next(
+            gen.gen_norm_to_data_lumi(
+                filter(lambda w: 'to80' not in w.name
+                                 and w.sample == 'TTbarBDMatch', inp)))
+        # bee_highDR = next(
+        #     gen.gen_norm_to_data_lumi(
+        #         filter(lambda w: 'to80' in w.name
+        #                          and w.sample == 'TTbarTwoMatch', inp)))
+        # bee_for_diff = op.prod((
+        #     op.norm_to_integral(bee_tmplt), op.integral(bee_highDR)
+        # ))
+        # fke_tmplt = gen.op.diff((highDR, bee_for_diff))
+        fke_tmplt = next(
+            gen.gen_norm_to_data_lumi(
+                filter(lambda w: 'to80' not in w.name
+                                 and w.sample == 'TTbarOneMatch', inp)))
+
+        bee_tmplt.legend = '2 Bee Vertices'
+        dee_tmplt.legend = 'Bee + Dee Vertex'
+        fke_tmplt.legend = 'Bee + Fake Vertex'
+        bee_tmplt.histo.SetTitle('2 Bee Vertices')
+        dee_tmplt.histo.SetTitle('Bee + Dee Vertex')
+        fke_tmplt.histo.SetTitle('Bee + Fake Vertex')
+        bee_tmplt.histo.SetFillColor(ROOT.kSpring - 4)
+        dee_tmplt.histo.SetFillColor(ROOT.kRed - 7)
+        fke_tmplt.histo.SetFillColor(ROOT.kRed + 2)
+        fitted.legend = 'Fit Histo'
+
+        # normalize templates to starting values
+        integral = fitted.histo.Integral()
+        for t in (bee_tmplt, dee_tmplt, fke_tmplt):
+            t.lumi = 1.
+            t.histo.Scale(
+                integral / (t.histo.Integral() or 1.) / 3.
+            )
+
+        self.result = list(gen.gen_rebin(
+            (fitted, fke_tmplt, dee_tmplt, bee_tmplt), re_bins))
+
+
 ################################################################## Fit Tool ###
+import varial.rendering as rnd
+
 class TemplateFitTool(varial.tools.FSPlotter):
     def __init__(self, input_result_path, name=None):
         super(TemplateFitTool, self).__init__(
@@ -206,6 +272,22 @@ class TemplateFitTool(varial.tools.FSPlotter):
         self.x_min = 0.
         self.x_max = 0.
         self.save_name_lambda = lambda w: w.name.split("_")[1]
+
+        def fix_ratio_histo_name(cnvs):
+            for c in cnvs:
+                d = c.get_decorator(rnd.BottomPlotRatioSplitErr)
+                d.dec_par["y_title"] = "Fit residual"
+                yield c
+
+        def set_no_exp(cnvs):
+            for c in cnvs:
+                c.first_drawn.GetYaxis().SetNoExponent()
+                c.bottom_hist.GetYaxis().SetTitleSize(0.14)
+                c.canvas.Modified()
+                c.canvas.Update()
+                yield c
+        self.hook_pre_canvas_build = fix_ratio_histo_name
+        self.hook_post_canvas_build = set_no_exp
 
         def fix_ratio_histo_name(cnvs):
             for c in cnvs:
@@ -291,10 +373,8 @@ class TemplateFitTool(varial.tools.FSPlotter):
 
 
 ############################################################ Fit ToolChains ###
-#b_tmpl = "VertexBeeMassTemplate"; d_tmpl = "VertexDeeMassTemplate"; fttd = 'VertexMassVsDr'
-#b_tmpl = "VertexBeeNTracksTemplate"; d_tmpl = "VertexDeeNTracksTemplate"; fttd = 'VertexNTracksVsDr'
 
-slices = [(0, 4), (10, 80)]
+slices = [(0, 6), (20, 80)]
 
 fitter_plots = varial.tools.ToolChain(
     'VtxMassFitterPlots', [
@@ -331,28 +411,45 @@ fitter_chain = varial.tools.ToolChain(
         varial.tools.FSPlotter(
             'TemplatesAndFittedHisto',
             input_result_path='../FitHistosCreator',
+            plot_grouper=None,
+            plot_setup=lambda w: [list(varial.tools.overlay_colorizer(w, [1, 2, 3]))]
         ),
         TemplateFitTool(input_result_path='../FitHistosCreator'),
     ]
 )
 
+
+def _mkchnsm(name, slice, coll):
+    return varial.tools.ToolChain(
+        'FitChainSum'+name, [
+            varial.tools.FSHistoLoader(
+                filter_keyfunc=lambda w: w.name == 'VertexMassSumVsDr'
+                                         and w.analyzer == coll,
+            ),
+            HistoSlicer([slice]),
+            FitHistosCreatorSum(True),
+            varial.tools.FSPlotter(
+                'TemplatesAndFittedHisto',
+                input_result_path='../FitHistosCreatorSum',
+                plot_grouper=gen.gen_copy,
+                plot_setup=lambda w: [list(varial.tools.overlay_colorizer(w, [1, 2, 3, 4]))]
+            ),
+            varial.tools.FSPlotter(
+                'MassSlicePlots',
+                input_result_path="../HistoSlicer",
+                hook_loaded_histos=gen.sort
+            ),
+            TemplateFitTool(input_result_path='../FitHistosCreatorSum'),
+            FitHistosCreatorSum(False, name='FitHistosCreatorSumData'),
+            TemplateFitTool(name='TemplateFitToolData',
+                            input_result_path='../FitHistosCreatorSumData'),
+        ]
+    )
 
 fitter_chain_sum = varial.tools.ToolChain(
-    'TestFitChainSum', [
-        varial.tools.FSHistoLoader(
-            filter_keyfunc=lambda w: (w.name, w.analyzer) in [
-                ("VertexMassSumTemplate", 'IvfMergedFilt'),
-                ('VertexMassSumVsDr', 'IvfB2cMerged'),
-            ] and not w.is_data
-        ),
-        HistoSlicer(slices),
-        FitHistosCreator('VertexMassSumTemplate', 'VertexMassSumVsDr'),
-        varial.tools.FSPlotter(
-            'TemplatesAndFittedHisto',
-            input_result_path='../FitHistosCreator',
-            hook_setup_histos=itertools.chain.from_iterable
-        ),
-        TemplateFitTool(input_result_path='../FitHistosCreator'),
-    ]
+    'FitChainSum', list(
+        _mkchnsm("from%dto%d_%s" % (s[0], s[1], c), s, c)
+        for c in ('IvfB2cMerged', 'IvfB2cMergedCuts')
+        for s in ((0, 6), (6, 10), (10, 14), (14, 18))
+    )
 )
-
