@@ -10,7 +10,6 @@ import varial.settings as s
 import ttdilep_samples
 import varial_plotters
 import varial_fitter
-import varial_result
 
 s.rootfile_postfixes = ['.root', '.png']
 fwlite_exe = os.path.join(
@@ -27,14 +26,13 @@ tc = varial.tools.ToolChain(
     [
         varial.tools.FwliteProxy(fwlite_exe),
         varial.tools.ZipTool('ttdilep_analysis/FwliteProxy'),
-        #varial.tools.CopyTool(os.path.join(os.environ['HOME'], 'www/btagdr/ana/'), name="ZipFileCopyTool",),
+        varial.tools.CopyTool(os.path.join(os.environ['HOME'], 'www/btagdr/ana/'), name="ZipFileCopyTool",),
         varial_plotters.jet_plots,
         varial_plotters.SampleNormalizer(),
-    ] + varial_plotters.chains + [
+    #] + varial_plotters.chains + [
         varial_fitter.fitter_plots,
         varial_fitter.fitter_chain,
         varial_fitter.fitter_chain_sum,
-        varial_result.summary_chain,
         varial.tools.SimpleWebCreator(),
         varial.tools.CopyTool(
             os.path.join(os.environ['HOME'], 'www/btagdr/ana/')),

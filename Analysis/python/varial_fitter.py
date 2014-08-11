@@ -5,6 +5,7 @@ import varial.tools
 import varial.history
 import varial.generators as gen
 import varial.operations as op
+import varial_result
 
 
 ##################################################### convenience functions ###
@@ -448,8 +449,8 @@ def _mkchnsm(name, slice, coll):
 
 fitter_chain_sum = varial.tools.ToolChain(
     'FitChainSum', list(
-        _mkchnsm("from%dto%d_%s" % (s[0], s[1], c), s, c)
+        _mkchnsm("from%02dto%02d_%s" % (s[0], s[1], c), s, c)
         for c in ('IvfB2cMerged', 'IvfB2cMergedCuts')
         for s in ((0, 6), (6, 10), (10, 14), (14, 18))
-    )
+    ) + [varial_result.summary_chain]
 )
