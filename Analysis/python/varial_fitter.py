@@ -1,6 +1,7 @@
 import itertools
 import ROOT
 import varial.analysis
+import varial.dbio
 import varial.tools
 import varial.history
 import varial.generators as gen
@@ -121,6 +122,7 @@ class Fitter(object):
 
 ############################################################### Loading ... ###
 class HistoSlicer(varial.tools.Tool):
+    io = varial.dbio
 
     def __init__(self, slices, name=None):
         super(HistoSlicer, self).__init__(name)
