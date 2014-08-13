@@ -11,9 +11,7 @@ import varial_result
 
 ##################################################### convenience functions ###
 legend_tags = ["real", "fakeGamma", "fakeOther", "fake"]
-re_bins = list(i / 10. for i in xrange(0, 100, 5))
-#re_bins = list(i / 10. for i in xrange(10, 60, 2))
-#re_bins = list(i - .5 for i in xrange(0, 21))
+re_bins = list(i / 10. for i in xrange(0, 100, 4))
 
 
 def gen_set_legend_and_color(wrps, sig_token, sig="Signal", bg="Background"):
@@ -231,29 +229,41 @@ class FitHistosCreatorSum(varial.tools.Tool):
         #     op.norm_to_integral(bee_tmplt), op.integral(bee_highDR)
         # ))
         # fke_tmplt = gen.op.diff((highDR, bee_for_diff))
+        # fke_tmplt = next(gen.gen_norm_to_data_lumi(
+        #     [op.merge(
+        #         itertools.ifilter(
+        #             lambda w: 'to80' not in w.name
+        #                       and not w.is_data
+        #                       and w.sample not in ['TTbarBDMatch',
+        #                                            'TTbarTwoMatch'],
+        #             inp
+        #         )
+        #     )]
+        # ))
         fke_tmplt = next(
             gen.gen_norm_to_data_lumi(
                 filter(lambda w: 'to80' not in w.name
                                  and w.sample == 'TTbarOneMatch', inp)))
 
-        bee_tmplt.legend = '2 Bee Vertices'
-        dee_tmplt.legend = 'Bee + Dee Vertex'
-        fke_tmplt.legend = 'Bee + Fake Vertex'
-        bee_tmplt.histo.SetTitle('2 Bee Vertices')
-        dee_tmplt.histo.SetTitle('Bee + Dee Vertex')
-        fke_tmplt.histo.SetTitle('Bee + Fake Vertex')
+        bee_tmplt.legend = 'B + B Vertex'
+        dee_tmplt.legend = 'B + D Vertex'
+        fke_tmplt.legend = 'B + Fake Vertex'
+        bee_tmplt.histo.SetTitle('B + B Vertex')
+        dee_tmplt.histo.SetTitle('B + D Vertex')
+        fke_tmplt.histo.SetTitle('B + Fake Vertex')
         bee_tmplt.histo.SetFillColor(ROOT.kSpring - 4)
         dee_tmplt.histo.SetFillColor(ROOT.kRed - 7)
         fke_tmplt.histo.SetFillColor(ROOT.kRed + 2)
         fitted.legend = 'Fit Histo'
 
         # normalize templates to starting values
-        integral = fitted.histo.Integral()
-        for t in (bee_tmplt, dee_tmplt, fke_tmplt):
-            t.lumi = 1.
-            t.histo.Scale(
-                integral / (t.histo.Integral() or 1.) / 3.
-            )
+        if False:  # normalization turned off
+            integral = fitted.histo.Integral()
+            for t in (bee_tmplt, dee_tmplt, fke_tmplt):
+                t.lumi = 1.
+                t.histo.Scale(
+                    integral / (t.histo.Integral() or 1.) / 3.
+                )
 
         self.result = list(gen.gen_rebin(
             (fitted, fke_tmplt, dee_tmplt, bee_tmplt), re_bins))
@@ -453,6 +463,6 @@ fitter_chain_sum = varial.tools.ToolChain(
     'FitChainSum', list(
         _mkchnsm("from%02dto%02d_%s" % (s[0], s[1], c), s, c)
         for c in ('IvfB2cMerged', 'IvfB2cMergedCuts')
-        for s in ((0, 6), (6, 10), (10, 14), (14, 18))
+        for s in ((0, 10), (10, 14), (14, 16), (16, 18))
     ) + [varial_result.summary_chain]
 )
