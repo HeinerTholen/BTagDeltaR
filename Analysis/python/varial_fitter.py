@@ -425,7 +425,8 @@ fitter_chain = varial.tools.ToolChain(
             'TemplatesAndFittedHisto',
             input_result_path='../FitHistosCreator',
             plot_grouper=None,
-            plot_setup=lambda w: [list(varial.tools.overlay_colorizer(w, [1, 2, 3]))]
+            plot_setup=lambda w: [list(varial.tools.overlay_colorizer(
+                w, [1, ROOT.kRed + 2, ROOT.kRed - 7, ROOT.kSpring - 4]))]
         ),
         TemplateFitTool(input_result_path='../FitHistosCreator'),
     ]
@@ -440,20 +441,21 @@ def _mkchnsm(name, slice, coll):
                                          and w.analyzer == coll,
             ),
             HistoSlicer([slice]),
-            FitHistosCreatorSum(True),
+            FitHistosCreatorSum(False, name='FitHistosCreatorSumData'),
             varial.tools.FSPlotter(
                 'TemplatesAndFittedHisto',
-                input_result_path='../FitHistosCreatorSum',
+                input_result_path='../FitHistosCreatorSumData',
                 plot_grouper=gen.gen_copy,
-                plot_setup=lambda w: [list(varial.tools.overlay_colorizer(w, [1, 2, 3, 4]))]
+                plot_setup=lambda ws: [list(varial.tools.overlay_colorizer(
+                    filter(lambda w: not w.is_data, ws),
+                    [ROOT.kRed + 2, ROOT.kRed - 7, ROOT.kSpring - 4]))],
+                canvas_decorators=[varial.rendering.Legend],
             ),
             varial.tools.FSPlotter(
                 'MassSlicePlots',
                 input_result_path="../HistoSlicer",
                 hook_loaded_histos=gen.sort
             ),
-            TemplateFitTool(input_result_path='../FitHistosCreatorSum'),
-            FitHistosCreatorSum(False, name='FitHistosCreatorSumData'),
             TemplateFitTool(name='TemplateFitToolData',
                             input_result_path='../FitHistosCreatorSumData'),
         ]
