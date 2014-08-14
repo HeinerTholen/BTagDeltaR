@@ -162,7 +162,7 @@ class Worker(fwliteworker.FwliteWorker):
         # Mass Template Fit
         fs.VertexMassVsDr = ROOT.TH2D(
             'VertexMassVsDr',
-            ';Vertex #Delta R; Vertex Mass',
+            ';Vertex #Delta R; Vertex Mass / GeV',
             100, 0., 5.,
             100, 0., 10.
         )
@@ -180,13 +180,27 @@ class Worker(fwliteworker.FwliteWorker):
         # Mass Sum Template Fit
         fs.VertexMassSumVsDr = ROOT.TH2D(
             'VertexMassSumVsDr',
-            ';Vertex #Delta R; Vertex Mass',
+            ';Vertex #Delta R; Sum of Vertex Masses / GeV',
             100, 0., 5.,
             100, 0., 10.
         )
         fs.make(
             'VertexMassSumTemplate',
             ";B vertex candidate mass; number of events",
+            100, 0., 10.
+        )
+
+        # Simultaneous Mass Template Fit
+        fs.VertexMassPtLeadVsDr = ROOT.TH2D(
+            'VertexMassPtLeadVsDr',
+            ';Vertex #Delta R; Vertex Mass / GeV',
+            100, 0., 5.,
+            100, 0., 10.
+        )
+        fs.VertexMassPtSubLeadVsDr = ROOT.TH2D(
+            'VertexMassPtSubLeadVsDr',
+            ';Vertex #Delta R; Vertex Mass / GeV',
+            100, 0., 5.,
             100, 0., 10.
         )
 
@@ -328,12 +342,12 @@ class Worker(fwliteworker.FwliteWorker):
         )
         fs.make(
             "VtxBeeMass",
-            ";vertex mass;number of vertices",
+            ";Vertex Mass / GeV;number of vertices",
             100, 0., 10.
         )
         fs.make(
             "VtxDeeMass",
-            ";vertex mass;number of vertices",
+            ";Vertex Mass / GeV;number of vertices",
             100, 0., 10.
         )
         fs.make(
@@ -477,17 +491,23 @@ class Worker(fwliteworker.FwliteWorker):
                 mass1 = ivf_vtx_fd_max2[1][0].originalMass()
                 n_trk0 = ivf_vtx_fd_max2[0][0].originalNTracks()
                 n_trk1 = ivf_vtx_fd_max2[1][0].originalNTracks()
+                mass_lead = ivf_vtx_fd_pt_sort[0][0].originalMass()
+                mass_subl = ivf_vtx_fd_pt_sort[1][0].originalMass()
             else:
                 mass0 = ivf_vtx_fd_max2[0][0].p4().mass()
                 mass1 = ivf_vtx_fd_max2[1][0].p4().mass()
                 n_trk0 = ivf_vtx_fd_max2[0][0].nTracks()
                 n_trk1 = ivf_vtx_fd_max2[1][0].nTracks()
+                mass_lead = ivf_vtx_fd_pt_sort[0][0].p4().mass()
+                mass_subl = ivf_vtx_fd_pt_sort[1][0].p4().mass()
             fs.VertexMassVsDr.Fill(dr_mom, mass0, w)
             fs.VertexMassVsDr.Fill(dr_mom, mass1, w)
             fs.VertexMassSumVsDr.Fill(dr_mom, mass0 + mass1, w)
             fs.VertexNTracksVsDr.Fill(dr_mom, n_trk0, w)
             fs.VertexNTracksVsDr.Fill(dr_mom, n_trk1, w)
             fs.VertexNTracksSumVsDr.Fill(dr_mom, n_trk0 + n_trk1, w)
+            fs.VertexMassPtLeadVsDr.Fill(dr_mom, mass_lead, w)
+            fs.VertexMassPtSubLeadVsDr.Fill(dr_mom, mass_subl, w)
 
             # fit templates
             if dr_mom < 0.1:
@@ -602,8 +622,8 @@ workers = [
     JetWorker("JetWorker"),
     #Worker("IvfMerged", "inclusiveMergedVertices"),
     Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
-    Worker("IvfMergedFiltLt0p2", 'inclusiveMergedVerticesFiltered', vtx_dr_lt_0p2),
-    Worker("IvfMergedFiltGt1p0", 'inclusiveMergedVerticesFiltered', vtx_no_dr_lt_1p0),
+    #Worker("IvfMergedFiltLt0p2", 'inclusiveMergedVerticesFiltered', vtx_dr_lt_0p2),
+    #Worker("IvfMergedFiltGt1p0", 'inclusiveMergedVerticesFiltered', vtx_no_dr_lt_1p0),
     Worker("IvfMergedFiltCuts", "inclusiveMergedVerticesFiltered", vtx_cuts),
     Worker("IvfB2cMerged", "bToCharmDecayVertexMerged"),
     Worker("IvfB2cMergedCuts", "bToCharmDecayVertexMerged", vtx_cuts),

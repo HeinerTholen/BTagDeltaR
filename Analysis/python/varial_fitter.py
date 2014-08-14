@@ -1,5 +1,7 @@
 import itertools
+import os
 import ROOT
+
 import varial.analysis
 import varial.dbio
 import varial.tools
@@ -8,10 +10,13 @@ import varial.generators as gen
 import varial.operations as op
 import varial_result
 
+import theta_auto
+theta_auto.config.theta_dir = os.environ["CMSSW_BASE"] + "/theta"
+
 
 ##################################################### convenience functions ###
 legend_tags = ["real", "fakeGamma", "fakeOther", "fake"]
-re_bins = list(i / 10. for i in xrange(0, 100, 4))
+re_bins = list(i / 10. for i in xrange(0, 100, 2))
 
 
 def gen_set_legend_and_color(wrps, sig_token, sig="Signal", bg="Background"):
@@ -118,6 +123,96 @@ class Fitter(object):
             )
 
 
+class ThetaFitter(Fitter):
+    def __init__(self):
+        super(ThetaFitter, self).__init__()
+        self.model = None
+        self.fit_res = None
+        self.ndf = 0
+        self.sig_val = None
+        self.sig_err = None
+        self.bkg_val = None
+        self.bkg_err = None
+
+    def _store_histos_for_theta(self, wrp):
+        filename = os.path.join(varial.analysis.cwd, wrp.name + ".root")
+        f = ROOT.TFile.Open(filename, "RECREATE")
+        f.cd()
+        for key, value in wrp.__dict__.iteritems():
+            if isinstance(value, ROOT.TH1):
+                value.SetName(key)
+                value.Write()
+        f.Close()
+
+    def build_fit_function(self, fitted, mc_tmplts, x_min, x_max):
+        self.x_min, self.x_max = x_min, x_max
+        self.fitted = fitted
+        self.mc_tmplts = mc_tmplts
+
+        theta_root_wrp = varial.wrappers.Wrapper(
+            name="ThetaHistos",
+            histo__DATA=fitted.histo,
+        )
+        self.template_names = []
+        for i, tmplt in enumerate(mc_tmplts):
+            name = 'template%02d' % i+1
+            self.template_names.append(name)
+            setattr(theta_root_wrp, 'histo__' + name, tmplt.histo)
+        self._store_histos_for_theta(theta_root_wrp)
+        theta_auto.config.workdir = varial.analysis.cwd
+        self.model = theta_auto.build_model_from_rootfile(
+            os.path.join(varial.analysis.cwd, "ThetaHistos.root"),
+            include_mc_uncertainties=True
+        )
+        self.model.set_signal_processes([self.template_names[-1]])
+        for tmplt_name in self.template_names[:-1]:
+            self.model.add_lognormal_uncertainty(
+                "bg_" % tmplt_name, 1., tmplt_name)
+        #self.model.distribution.set_distribution_parameters(
+        #    'fake_rate',
+        #    width=theta_auto.inf
+        #)
+        self.ndf = sum(
+            1
+            for i in xrange(fitted.histo.GetNbinsX())
+            if fitted.histo.GetBinContent(i) > 1e-10
+        )
+
+    def do_the_fit(self):
+        self.fit_res = theta_auto.mle(self.model, "data", 1, chi2=True)
+        print self.fit_res
+
+    def scale_templates_to_fit(self, templates):
+        sig_name = self.template_names[-1]
+        par_values = {
+            "beta_signal": self.fit_res[sig_name]["beta_signal"][0][0],
+        }
+        for tmplt_name in self.template_names[:-1]:
+            bg_name = "bg_" % tmplt_name
+            par_values[bg_name] = self.fit_res[sig_name][bg_name][0][0]
+
+        self.val_err = list(
+            (
+                self.model.get_coeff("histo", tmplt_name).get_value(par_values),
+                abs(self.bkg_val * self.fit_res[sig_name]["bg_" % tmplt_name][0][1]
+                    / self.fit_res[sig_name]["bg_" % tmplt_name][0][0])
+            )
+            for tmplt_name in self.template_names[:-1]
+        )
+        self.val_err.append((
+            self.fit_res[sig_name]["beta_signal"][0][0],
+            abs(self.fit_res[sig_name]["beta_signal"][0][1])
+        ))
+        for tmplt, val_err in zip(templates, self.val_err):
+                tmplt.histo.Scale(val_err[0])
+
+    def get_val_err(self, i_par):
+        return self.val_err[i_par]
+
+    def get_ndf(self):
+        return self.ndf
+
+
 ############################################################### Loading ... ###
 class HistoSlicer(varial.tools.Tool):
     io = varial.dbio
@@ -130,8 +225,9 @@ class HistoSlicer(varial.tools.Tool):
         @varial.history.track_history
         def get_slice_from_th2d(wrp, bin_low, bin_high):
             name = wrp.name + 'from%dto%d' % (bin_low, bin_high)
-            histo = wrp.histo.ProjectionY(name, bin_low, bin_high)
+            histo = wrp.histo.ProjectionY('', bin_low, bin_high)
             histo = histo.Clone()
+            histo.SetName(name)
             histo.SetTitle(wrp.legend)
             return varial.wrappers.HistoWrapper(histo, **wrp.all_info())
 
@@ -254,7 +350,8 @@ class FitHistosCreatorSum(varial.tools.Tool):
         bee_tmplt.histo.SetFillColor(ROOT.kSpring - 4)
         dee_tmplt.histo.SetFillColor(ROOT.kRed - 7)
         fke_tmplt.histo.SetFillColor(ROOT.kRed + 2)
-        fitted.legend = 'Fit Histo'
+        if not fitted.is_data:
+            fitted.legend = 'Fit Histo'
 
         # normalize templates to starting values
         if False:  # normalization turned off
@@ -269,6 +366,109 @@ class FitHistosCreatorSum(varial.tools.Tool):
             (fitted, fke_tmplt, dee_tmplt, bee_tmplt), re_bins))
 
 
+class FitHistosCreatorSimultaneous(varial.tools.Tool):
+    def __init__(self, run_on_mc, name=None):
+        super(FitHistosCreatorSimultaneous, self).__init__(name)
+        self.run_on_mc = run_on_mc
+
+    def run(self):
+        @varial.history.track_history
+        def place_next_to(wrps):
+            w1, w2 = wrps
+            h1, h2 = w1.histo, w2.histo
+            h1_n_bins, h2_n_bins = h1.GetNbinsX(), h2.GetNbinsX()
+            histo = ROOT.TH1D(
+                '%s_%s' % (w1.name, w2.name),
+                ';%s;%s' % (h1.GetXaxis().GetTitle(),
+                            h1.GetYaxis().GetTitle()),
+                h1_n_bins + h2_n_bins,
+                h1.GetXaxis().GetXmin(),
+                h1.GetXaxis().GetXmax()
+                    - h2.GetXaxis().GetXmin()
+                    + h2.GetXaxis().GetXmax(),
+            )
+            for j in range(h1_n_bins):
+                i = j + 1
+                histo.SetBinContent(i, h1.GetBinContent(i))
+                histo.SetBinError(i, h1.GetBinError(i))
+            for j in range(h2_n_bins):
+                i = j + h1_n_bins + 2
+                histo.SetBinContent(i, h2.GetBinContent(j+1))
+                histo.SetBinError(i, h2.GetBinError(j+1))
+            return varial.wrappers.HistoWrapper(
+                histo,
+                **w1.all_info()
+            )
+
+        inp = self.lookup('../HistoSlicer')
+        inp_lead = itertools.ifilter(lambda w: 'PtLead' in w.name, inp)
+        inp_subl = itertools.ifilter(lambda w: 'PtSubLead' in w.name, inp)
+        inp_lead = gen.gen_rebin(inp_lead, re_bins)
+        inp_subl = gen.gen_rebin(inp_subl, re_bins)
+        inp_lead = gen.sort(inp_lead)
+        inp_subl = gen.sort(inp_subl)
+
+        inp = list(place_next_to(wrps)
+                   for wrps in itertools.izip(inp_lead, inp_subl))
+
+        total = itertools.ifilter(lambda w: w.is_data != self.run_on_mc, inp)
+        total = gen.group(total)
+        total = gen.mc_stack_n_data_sum(total)
+        total = itertools.chain.from_iterable(total)
+        total = (
+            varial.wrappers.HistoWrapper(w.histo, **w.all_info())
+            for w in total
+        )
+        total = list(total)
+        fitted = total[0]
+
+        bee_tmplt = next(
+            gen.gen_norm_to_data_lumi(
+                filter(lambda w: 'to80' not in w.name
+                                 and w.sample == 'TTbarTwoMatch', inp)))
+        dee_tmplt = next(
+            gen.gen_norm_to_data_lumi(
+                filter(lambda w: 'to80' not in w.name
+                                 and w.sample == 'TTbarBDMatch', inp)))
+        # fke_tmplt = next(
+        #     gen.gen_norm_to_data_lumi(
+        #         filter(lambda w: 'to80' not in w.name
+        #                          and w.sample == 'TTbarOneMatch', inp)))
+        fke_tmplt = next(gen.gen_norm_to_data_lumi(
+            [op.merge(
+                itertools.ifilter(
+                    lambda w: 'to80' not in w.name
+                              and not w.is_data
+                              and w.sample not in ['TTbarBDMatch',
+                                                   'TTbarTwoMatch'],
+                    inp
+                )
+            )]
+        ))
+
+        bee_tmplt.legend = 'B + B Vertex'
+        dee_tmplt.legend = 'B + D Vertex'
+        fke_tmplt.legend = 'B + Fake Vertex'
+        bee_tmplt.histo.SetTitle('B + B Vertex')
+        dee_tmplt.histo.SetTitle('B + D Vertex')
+        fke_tmplt.histo.SetTitle('B + Fake Vertex')
+        bee_tmplt.histo.SetFillColor(ROOT.kSpring - 4)
+        dee_tmplt.histo.SetFillColor(ROOT.kRed - 7)
+        fke_tmplt.histo.SetFillColor(ROOT.kRed + 2)
+        fitted.legend = 'Fit Histo'
+
+        # normalize templates to starting values
+        if False:  # normalization turned off
+            integral = fitted.histo.Integral()
+            for t in (bee_tmplt, dee_tmplt, fke_tmplt):
+                t.lumi = 1.
+                t.histo.Scale(
+                    integral / (t.histo.Integral() or 1.) / 3.
+                )
+
+        self.result = [fitted, fke_tmplt, dee_tmplt, bee_tmplt]
+
+
 ################################################################## Fit Tool ###
 import varial.rendering as rnd
 
@@ -281,7 +481,7 @@ class TemplateFitTool(varial.tools.FSPlotter):
         self.fitbox_bounds = 0.63, 0.93, 0.60
         self.result = varial.wrappers.Wrapper()
         self.n_templates = 0
-        self.fitter = Fitter()
+        self.fitter = ThetaFitter()
         self.x_min = 0.
         self.x_max = 0.
         self.save_name_lambda = lambda w: w.name.split("_")[1]
@@ -461,10 +661,41 @@ def _mkchnsm(name, slice, coll):
         ]
     )
 
+
+def _mkchnsmltn(name, slice, coll):
+    return varial.tools.ToolChain(
+        'FitChainSum'+name, [
+            varial.tools.FSHistoLoader(
+                filter_keyfunc=lambda w: w.name in ['VertexMassPtLeadVsDr',
+                                                    'VertexMassPtSubLeadVsDr']
+                                         and w.analyzer == coll,
+            ),
+            HistoSlicer([slice]),
+            FitHistosCreatorSimultaneous(False, name='FitHistosCreatorSimultaneous'),
+            varial.tools.FSPlotter(
+                'TemplatesAndFittedHisto',
+                input_result_path='../FitHistosCreatorSimultaneous',
+                plot_grouper=gen.gen_copy,
+                plot_setup=lambda ws: [list(varial.tools.overlay_colorizer(
+                    filter(lambda w: not w.is_data, ws),
+                    [ROOT.kRed + 2, ROOT.kRed - 7, ROOT.kSpring - 4]))],
+                canvas_decorators=[varial.rendering.Legend],
+            ),
+            varial.tools.FSPlotter(
+                'MassSlicePlots',
+                input_result_path="../HistoSlicer",
+                hook_loaded_histos=gen.sort
+            ),
+            TemplateFitTool(name='TemplateFitToolData',
+                            input_result_path='../FitHistosCreatorSimultaneous'),
+        ]
+    )
+
+
 fitter_chain_sum = varial.tools.ToolChain(
     'FitChainSum', list(
-        _mkchnsm("from%02dto%02d_%s" % (s[0], s[1], c), s, c)
+        _mkchnsmltn("from%02dto%02d_%s" % (s[0], s[1], c), s, c)
         for c in ('IvfB2cMerged', 'IvfB2cMergedCuts')
-        for s in ((0, 10), (10, 14), (14, 16), (16, 18))
+        for s in ((0, 10), (10, 14), (14, 16), (16, 18), (18, 20), (20, 22), (22, 24))
     ) + [varial_result.summary_chain]
 )
