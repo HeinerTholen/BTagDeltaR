@@ -155,6 +155,7 @@ class ThetaFitter(Fitter):
         )
         self.template_names = []
         for i, tmplt in enumerate(mc_tmplts):
+            print i, tmplt
             name = 'template%02d' % i+1
             self.template_names.append(name)
             setattr(theta_root_wrp, 'histo__' + name, tmplt.histo)
@@ -168,10 +169,10 @@ class ThetaFitter(Fitter):
         for tmplt_name in self.template_names[:-1]:
             self.model.add_lognormal_uncertainty(
                 "bg_" % tmplt_name, 1., tmplt_name)
-        #self.model.distribution.set_distribution_parameters(
-        #    'fake_rate',
-        #    width=theta_auto.inf
-        #)
+            self.model.distribution.set_distribution_parameters(
+                "bg_" % tmplt_name,
+                width=theta_auto.inf
+            )
         self.ndf = sum(
             1
             for i in xrange(fitted.histo.GetNbinsX())
