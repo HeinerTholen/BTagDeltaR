@@ -32,6 +32,17 @@ def get_tuples_with_flight_dirs(vertices, primary_vertex):
     return list((sv, mkfd(sv)) for sv in vertices)
 
 
+def deltaR_from_pv(sv_fd, gen_part, gen_part_at_pv):
+    sv = gen_part.daughter(0)
+    pv = gen_part_at_pv.mother()
+    gen_fd = ROOT.Math.XYZVector(
+        sv.vx() - pv.vx(),
+        sv.vy() - pv.vy(),
+        sv.vz() - pv.vz(),
+    )
+    return deltaR_vec_to_vec(sv_fd[1], gen_fd)
+
+
 ############################################################ Initialization ###
 class PreWorker(fwliteworker.FwliteWorker):
     def node_setup(self, init_wrp):
@@ -75,6 +86,7 @@ class PreWorker(fwliteworker.FwliteWorker):
             event.getByLabel("genParticles", self.h_gen_particles)
             self.gen_particles = self.h_gen_particles.product()
             self.fin_b = final_b_hadrons(self.gen_particles)
+            self.fin_d = final_d_hadrons(self.gen_particles)
 
             event.getByLabel("puWeight", "PUWeightTrue", self.h_pu_weight)
             self.weight *= self.h_pu_weight.product()[0]
@@ -426,20 +438,22 @@ class Worker(fwliteworker.FwliteWorker):
                 ivf_vtx_fd_max2,
                 fin_b,
                 #lambda a, b: deltaR_vec_to_cand(a[1], b),
-                lambda a, b: deltaR_cand_to_cand(a[0], b),
+                #lambda a, b: deltaR_cand_to_cand(a[0], b),
+                lambda a, b: deltaR_from_pv(a, b, fin_b[0]),
                 DR_for_matching
             )
 
             if len(matched) == 1:
                 # try to match D hadron as well
                 fin_b_vtx, fin_b_gp, _ = matched[0]
-                fin_d = final_d_hadrons(get_all_daughters(gen_particles, [fin_b_gp]))
+                fin_d = pre_worker.fin_d  # final_d_hadrons(get_all_daughters(gen_particles, [fin_b_gp]))
                 other_vtxs = list(v for v in ivf_vtx_fd_max2 if v != fin_b_vtx)
                 if other_vtxs:
                     matched_d = matching(
                         other_vtxs,
                         fin_d,
-                        lambda a, b: deltaR_cand_to_cand(a[0], b),
+                        #lambda a, b: deltaR_cand_to_cand(a[0], b),
+                        lambda a, b: deltaR_from_pv(a, b, fin_b[0]),
                         DR_for_matching
                     )
                     matched_bd = matched + matched_d

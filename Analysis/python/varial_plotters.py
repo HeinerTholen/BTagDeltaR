@@ -127,8 +127,8 @@ def _mkchn(analyzer):
 chains = [
     #_mkchn('IvfMerged'),
     _mkchn('IvfMergedFilt'),
-    _mkchn('IvfMergedFiltLt0p2'),
-    _mkchn('IvfMergedFiltGt1p0'),
+    #_mkchn('IvfMergedFiltLt0p2'),
+    #_mkchn('IvfMergedFiltGt1p0'),
     _mkchn('IvfMergedFiltCuts'),
     _mkchn('IvfB2cMerged'),
     _mkchn('IvfB2cMergedCuts'),

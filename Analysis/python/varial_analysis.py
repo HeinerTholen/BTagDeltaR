@@ -29,9 +29,8 @@ tc = varial.tools.ToolChain(
         varial.tools.CopyTool(os.path.join(os.environ['HOME'], 'www/btagdr/ana/'), name="ZipFileCopyTool",),
         varial_plotters.jet_plots,
         varial_plotters.SampleNormalizer(),
-    #] + varial_plotters.chains + [
+    # ] + varial_plotters.chains + [
         varial_fitter.fitter_plots,
-        varial_fitter.fitter_chain,
         varial_fitter.fitter_chain_sum,
         varial.tools.SimpleWebCreator(),
         varial.tools.CopyTool(

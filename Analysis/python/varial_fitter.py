@@ -15,10 +15,6 @@ theta_auto.config.theta_dir = os.environ["CMSSW_BASE"] + "/theta"
 
 
 ##################################################### convenience functions ###
-legend_tags = ["real", "fakeGamma", "fakeOther", "fake"]
-re_bins = list(i / 10. for i in xrange(0, 100, 2))
-
-
 def gen_set_legend_and_color(wrps, sig_token, sig="Signal", bg="Background"):
     for w in wrps:
         if sig_token in w.name:
@@ -97,9 +93,12 @@ class Fitter(object):
     def get_ndf(self):
         return self.fit_func.GetNDF()
 
+    def get_chi2(self):
+        return 0.
+
     def make_fit_result(self, result_wrp, mc_tmplts):
         r = result_wrp
-        r.Chi2 = gen.op.chi2(
+        r.Chi2 = self.get_chi2() or gen.op.chi2(
             (gen.op.sum(mc_tmplts), self.fitted),
         ).float
         r.NDF = self.get_ndf()
@@ -129,10 +128,6 @@ class ThetaFitter(Fitter):
         self.model = None
         self.fit_res = None
         self.ndf = 0
-        self.sig_val = None
-        self.sig_err = None
-        self.bkg_val = None
-        self.bkg_err = None
 
     def _store_histos_for_theta(self, wrp):
         filename = os.path.join(varial.analysis.cwd, wrp.name + ".root")
@@ -155,8 +150,7 @@ class ThetaFitter(Fitter):
         )
         self.template_names = []
         for i, tmplt in enumerate(mc_tmplts):
-            print i, tmplt
-            name = 'template%02d' % i+1
+            name = 'template%02d' % (i+1)
             self.template_names.append(name)
             setattr(theta_root_wrp, 'histo__' + name, tmplt.histo)
         self._store_histos_for_theta(theta_root_wrp)
@@ -168,41 +162,46 @@ class ThetaFitter(Fitter):
         self.model.set_signal_processes([self.template_names[-1]])
         for tmplt_name in self.template_names[:-1]:
             self.model.add_lognormal_uncertainty(
-                "bg_" % tmplt_name, 1., tmplt_name)
+                "bg_" + tmplt_name, 1., tmplt_name)
             self.model.distribution.set_distribution_parameters(
-                "bg_" % tmplt_name,
-                width=theta_auto.inf
+                "bg_" + tmplt_name,
+                width=100.  # theta_auto.inf
             )
-        self.ndf = sum(
+        self.ndf_sum = sum(
             1
             for i in xrange(fitted.histo.GetNbinsX())
-            if fitted.histo.GetBinContent(i) > 1e-10
-        )
+            if fitted.histo.GetBinContent(i+1) > .05
+        ) - len(self.template_names)
 
     def do_the_fit(self):
-        self.fit_res = theta_auto.mle(self.model, "data", 1, chi2=True)
+        options = theta_auto.Options()
+        options.set('minimizer', 'strategy', 'robust')
+        self.fit_res = theta_auto.mle(
+            self.model,
+            "data",
+            1,
+            chi2=True,
+            options=options,
+        )[self.template_names[-1]]
         print self.fit_res
 
     def scale_templates_to_fit(self, templates):
-        sig_name = self.template_names[-1]
         par_values = {
-            "beta_signal": self.fit_res[sig_name]["beta_signal"][0][0],
+            "beta_signal": self.fit_res["beta_signal"][0][0],
         }
         for tmplt_name in self.template_names[:-1]:
-            bg_name = "bg_" % tmplt_name
-            par_values[bg_name] = self.fit_res[sig_name][bg_name][0][0]
+            bg_name = "bg_" + tmplt_name
+            par_values[bg_name] = self.fit_res[bg_name][0][0]
 
-        self.val_err = list(
-            (
-                self.model.get_coeff("histo", tmplt_name).get_value(par_values),
-                abs(self.bkg_val * self.fit_res[sig_name]["bg_" % tmplt_name][0][1]
-                    / self.fit_res[sig_name]["bg_" % tmplt_name][0][0])
-            )
-            for tmplt_name in self.template_names[:-1]
-        )
+        self.val_err = []
+        for tmplt_name in self.template_names[:-1]:
+            val = self.model.get_coeff("histo", tmplt_name).get_value(par_values)
+            err = val * abs(self.fit_res["bg_" + tmplt_name][0][1]
+                            / (self.fit_res["bg_" + tmplt_name][0][0] or 1e10))
+            self.val_err.append((val, err))
         self.val_err.append((
-            self.fit_res[sig_name]["beta_signal"][0][0],
-            abs(self.fit_res[sig_name]["beta_signal"][0][1])
+            self.fit_res["beta_signal"][0][0],
+            abs(self.fit_res["beta_signal"][0][1])
         ))
         for tmplt, val_err in zip(templates, self.val_err):
                 tmplt.histo.Scale(val_err[0])
@@ -211,8 +210,10 @@ class ThetaFitter(Fitter):
         return self.val_err[i_par]
 
     def get_ndf(self):
-        return self.ndf
+        return self.ndf_sum
 
+    def get_chi2(self):
+        return self.fit_res['__chi2'][0]
 
 ############################################################### Loading ... ###
 class HistoSlicer(varial.tools.Tool):
@@ -247,10 +248,11 @@ class HistoSlicer(varial.tools.Tool):
 
 
 class FitHistosCreator(varial.tools.Tool):
-    def __init__(self, template_name, signal_name, name=None):
+    def __init__(self, template_name, signal_name, re_bins=None, name=None):
         super(FitHistosCreator, self).__init__(name)
         self.template_name = template_name
         self.signal_name = signal_name
+        self.re_bins = re_bins
 
     def run(self):
         # input
@@ -267,7 +269,8 @@ class FitHistosCreator(varial.tools.Tool):
             varial.wrappers.HistoWrapper(w.histo, **w.all_info())
             for w in inp
         )
-        inp = gen.gen_rebin(inp, re_bins)
+        if self.re_bins:
+            inp = gen.gen_rebin(inp, self.re_bins)
         inp = list(inp)
         assert(len(inp) == 3)
 
@@ -292,9 +295,10 @@ class FitHistosCreator(varial.tools.Tool):
 
 
 class FitHistosCreatorSum(varial.tools.Tool):
-    def __init__(self, run_on_mc, name=None):
+    def __init__(self, run_on_mc, re_bins=None, name=None):
         super(FitHistosCreatorSum, self).__init__(name)
         self.run_on_mc = run_on_mc
+        self.re_bins = re_bins
 
     def run(self):
         inp = self.lookup('../HistoSlicer')
@@ -363,14 +367,18 @@ class FitHistosCreatorSum(varial.tools.Tool):
                     integral / (t.histo.Integral() or 1.) / 3.
                 )
 
-        self.result = list(gen.gen_rebin(
-            (fitted, fke_tmplt, dee_tmplt, bee_tmplt), re_bins))
+        res = [fitted, fke_tmplt, dee_tmplt, bee_tmplt]
+        if self.re_bins:
+            list(gen.gen_rebin(res, self.re_bins))
+        self.result = res
+
 
 
 class FitHistosCreatorSimultaneous(varial.tools.Tool):
-    def __init__(self, run_on_mc, name=None):
+    def __init__(self, run_on_mc, re_bins=None, name=None):
         super(FitHistosCreatorSimultaneous, self).__init__(name)
         self.run_on_mc = run_on_mc
+        self.re_bins = re_bins
 
     def run(self):
         @varial.history.track_history
@@ -388,14 +396,15 @@ class FitHistosCreatorSimultaneous(varial.tools.Tool):
                     - h2.GetXaxis().GetXmin()
                     + h2.GetXaxis().GetXmax(),
             )
+            sqrt2 = 2**.5
             for j in range(h1_n_bins):
                 i = j + 1
-                histo.SetBinContent(i, h1.GetBinContent(i))
-                histo.SetBinError(i, h1.GetBinError(i))
+                histo.SetBinContent(i, h1.GetBinContent(i) / 2.)
+                histo.SetBinError(i, h1.GetBinError(i) / sqrt2)
             for j in range(h2_n_bins):
                 i = j + h1_n_bins + 2
-                histo.SetBinContent(i, h2.GetBinContent(j+1))
-                histo.SetBinError(i, h2.GetBinError(j+1))
+                histo.SetBinContent(i, h2.GetBinContent(j+1) / 2.)
+                histo.SetBinError(i, h2.GetBinError(j+1) / sqrt2)
             return varial.wrappers.HistoWrapper(
                 histo,
                 **w1.all_info()
@@ -404,8 +413,8 @@ class FitHistosCreatorSimultaneous(varial.tools.Tool):
         inp = self.lookup('../HistoSlicer')
         inp_lead = itertools.ifilter(lambda w: 'PtLead' in w.name, inp)
         inp_subl = itertools.ifilter(lambda w: 'PtSubLead' in w.name, inp)
-        inp_lead = gen.gen_rebin(inp_lead, re_bins)
-        inp_subl = gen.gen_rebin(inp_subl, re_bins)
+        inp_lead = gen.gen_rebin(inp_lead, self.re_bins)
+        inp_subl = gen.gen_rebin(inp_subl, self.re_bins)
         inp_lead = gen.sort(inp_lead)
         inp_subl = gen.sort(inp_subl)
 
@@ -431,21 +440,21 @@ class FitHistosCreatorSimultaneous(varial.tools.Tool):
             gen.gen_norm_to_data_lumi(
                 filter(lambda w: 'to80' not in w.name
                                  and w.sample == 'TTbarBDMatch', inp)))
-        # fke_tmplt = next(
-        #     gen.gen_norm_to_data_lumi(
-        #         filter(lambda w: 'to80' not in w.name
-        #                          and w.sample == 'TTbarOneMatch', inp)))
-        fke_tmplt = next(gen.gen_norm_to_data_lumi(
-            [op.merge(
-                itertools.ifilter(
-                    lambda w: 'to80' not in w.name
-                              and not w.is_data
-                              and w.sample not in ['TTbarBDMatch',
-                                                   'TTbarTwoMatch'],
-                    inp
-                )
-            )]
-        ))
+        fke_tmplt = next(
+            gen.gen_norm_to_data_lumi(
+                filter(lambda w: 'to80' not in w.name
+                                 and w.sample == 'TTbarOneMatch', inp)))
+        # fke_tmplt = next(gen.gen_norm_to_data_lumi(
+        #     [op.merge(
+        #         itertools.ifilter(
+        #             lambda w: 'to80' not in w.name
+        #                       and not w.is_data
+        #                       and w.sample not in ['TTbarBDMatch',
+        #                                            'TTbarTwoMatch'],
+        #             inp
+        #         )
+        #     )]
+        # ))
 
         bee_tmplt.legend = 'B + B Vertex'
         dee_tmplt.legend = 'B + D Vertex'
@@ -467,7 +476,10 @@ class FitHistosCreatorSimultaneous(varial.tools.Tool):
                     integral / (t.histo.Integral() or 1.) / 3.
                 )
 
-        self.result = [fitted, fke_tmplt, dee_tmplt, bee_tmplt]
+        if dee_tmplt.histo.Integral():
+            self.result = [fitted, fke_tmplt, dee_tmplt, bee_tmplt]
+        else:
+            self.result = [fitted, fke_tmplt, bee_tmplt]
 
 
 ################################################################## Fit Tool ###
@@ -479,7 +491,7 @@ class TemplateFitTool(varial.tools.FSPlotter):
             name, input_result_path=input_result_path)
         self.mc_tmplts = None
         self.fitted = None
-        self.fitbox_bounds = 0.63, 0.93, 0.60
+        self.fitbox_bounds = 0.33, 0.63, 0.87
         self.result = varial.wrappers.Wrapper()
         self.n_templates = 0
         self.fitter = ThetaFitter()
@@ -519,7 +531,6 @@ class TemplateFitTool(varial.tools.FSPlotter):
 
         self.hook_pre_canvas_build = fix_ratio_histo_name
         self.hook_post_canvas_build = set_no_exp
-        #TODO self.canvas_decorators.append(com.LumiTitleBox)
 
     def make_fit_textbox(self):
         res = self.result
@@ -663,7 +674,8 @@ def _mkchnsm(name, slice, coll):
     )
 
 
-def _mkchnsmltn(name, slice, coll):
+def _mkchnsmltn(slice, coll, re_bins):
+    name = "from%02dto%02d_%s" % (slice[0], slice[1], coll)
     return varial.tools.ToolChain(
         'FitChainSum'+name, [
             varial.tools.FSHistoLoader(
@@ -672,14 +684,22 @@ def _mkchnsmltn(name, slice, coll):
                                          and w.analyzer == coll,
             ),
             HistoSlicer([slice]),
-            FitHistosCreatorSimultaneous(False, name='FitHistosCreatorSimultaneous'),
+            FitHistosCreatorSimultaneous(
+                False, re_bins=re_bins, name='FitHistosCreatorSimultaneous'),
             varial.tools.FSPlotter(
                 'TemplatesAndFittedHisto',
                 input_result_path='../FitHistosCreatorSimultaneous',
                 plot_grouper=gen.gen_copy,
-                plot_setup=lambda ws: [list(varial.tools.overlay_colorizer(
-                    filter(lambda w: not w.is_data, ws),
-                    [ROOT.kRed + 2, ROOT.kRed - 7, ROOT.kSpring - 4]))],
+                plot_setup=lambda ws: [list(
+                    varial.tools.overlay_colorizer(
+                        gen.apply_histo_linewidth(
+                            gen.gen_norm_to_integral(
+                                filter(lambda w: not w.is_data, ws)
+                            )
+                        ),
+                        [ROOT.kRed + 2, ROOT.kRed - 7, ROOT.kSpring - 4]
+                    )
+                )],
                 canvas_decorators=[varial.rendering.Legend],
             ),
             varial.tools.FSPlotter(
@@ -693,10 +713,18 @@ def _mkchnsmltn(name, slice, coll):
     )
 
 
+re_bins_1 = list(i / 10. for i in xrange(0, 60, 1))
+re_bins_2 = list(i / 10. for i in xrange(0, 60, 2))
+re_bins_3 = list(i / 10. for i in xrange(0, 60, 3))
+re_bins_4 = list(i / 10. for i in xrange(0, 60, 4))
+dr_bins = ((0, 10), (10, 14), (14, 17), (17, 20), (20, 22))
+c1 = 'IvfB2cMerged'
+c2 = 'IvfB2cMergedCuts'
 fitter_chain_sum = varial.tools.ToolChain(
     'FitChainSum', list(
-        _mkchnsmltn("from%02dto%02d_%s" % (s[0], s[1], c), s, c)
-        for c in ('IvfB2cMerged', 'IvfB2cMergedCuts')
-        for s in ((0, 10), (10, 14), (14, 16), (16, 18), (18, 20), (20, 22), (22, 24))
+        _mkchnsmltn(s, c, re_bins_1)
+        for s in dr_bins
+        for c in (c1, c2)
     ) + [varial_result.summary_chain]
 )
+#TODO self.canvas_decorators.append(com.LumiTitleBox)
