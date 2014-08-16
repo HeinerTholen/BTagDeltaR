@@ -165,7 +165,7 @@ class ThetaFitter(Fitter):
                 "bg_" + tmplt_name, 1., tmplt_name)
             self.model.distribution.set_distribution_parameters(
                 "bg_" + tmplt_name,
-                width=100.  # theta_auto.inf
+                width=50.  # theta_auto.inf
             )
         self.ndf_sum = sum(
             1
@@ -373,7 +373,6 @@ class FitHistosCreatorSum(varial.tools.Tool):
         self.result = res
 
 
-
 class FitHistosCreatorSimultaneous(varial.tools.Tool):
     def __init__(self, run_on_mc, re_bins=None, name=None):
         super(FitHistosCreatorSimultaneous, self).__init__(name)
@@ -396,15 +395,15 @@ class FitHistosCreatorSimultaneous(varial.tools.Tool):
                     - h2.GetXaxis().GetXmin()
                     + h2.GetXaxis().GetXmax(),
             )
-            sqrt2 = 2**.5
+            #sqrt2 = 2**.5
             for j in range(h1_n_bins):
                 i = j + 1
-                histo.SetBinContent(i, h1.GetBinContent(i) / 2.)
-                histo.SetBinError(i, h1.GetBinError(i) / sqrt2)
+                histo.SetBinContent(i, h1.GetBinContent(i))  # / 2.)
+                histo.SetBinError(i, h1.GetBinError(i))  # / sqrt2)
             for j in range(h2_n_bins):
                 i = j + h1_n_bins + 2
-                histo.SetBinContent(i, h2.GetBinContent(j+1) / 2.)
-                histo.SetBinError(i, h2.GetBinError(j+1) / sqrt2)
+                histo.SetBinContent(i, h2.GetBinContent(j+1))  # / 2.)
+                histo.SetBinError(i, h2.GetBinError(j+1))  # / sqrt2)
             return varial.wrappers.HistoWrapper(
                 histo,
                 **w1.all_info()
@@ -491,7 +490,7 @@ class TemplateFitTool(varial.tools.FSPlotter):
             name, input_result_path=input_result_path)
         self.mc_tmplts = None
         self.fitted = None
-        self.fitbox_bounds = 0.33, 0.63, 0.87
+        self.fitbox_bounds = 0.3, 0.6, 0.87
         self.result = varial.wrappers.Wrapper()
         self.n_templates = 0
         self.fitter = ThetaFitter()
@@ -721,10 +720,18 @@ dr_bins = ((0, 10), (10, 14), (14, 17), (17, 20), (20, 22))
 c1 = 'IvfB2cMerged'
 c2 = 'IvfB2cMergedCuts'
 fitter_chain_sum = varial.tools.ToolChain(
-    'FitChainSum', list(
-        _mkchnsmltn(s, c, re_bins_1)
-        for s in dr_bins
-        for c in (c1, c2)
-    ) + [varial_result.summary_chain]
+    'FitChainSum', [
+        _mkchnsmltn((0, 10), c1, re_bins_2),
+        _mkchnsmltn((10, 14), c1, re_bins_2),
+        _mkchnsmltn((14, 17), c1, re_bins_2),
+        _mkchnsmltn((17, 20), c1, re_bins_2),
+        _mkchnsmltn((20, 22), c1, re_bins_2),
+        _mkchnsmltn((0, 10), c2, re_bins_2),
+        _mkchnsmltn((10, 14), c2, re_bins_2),
+        _mkchnsmltn((14, 17), c2, re_bins_3),
+        _mkchnsmltn((17, 20), c2, re_bins_2),
+        _mkchnsmltn((20, 22), c2, re_bins_2),
+        varial_result.summary_chain
+    ]
 )
 #TODO self.canvas_decorators.append(com.LumiTitleBox)
