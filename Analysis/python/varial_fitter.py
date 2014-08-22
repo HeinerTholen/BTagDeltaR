@@ -10,8 +10,8 @@ import varial.generators as gen
 import varial.operations as op
 import varial_result
 
-import theta_auto
-theta_auto.config.theta_dir = os.environ["CMSSW_BASE"] + "/theta"
+#import theta_auto
+#theta_auto.config.theta_dir = os.environ["CMSSW_BASE"] + "/theta"
 
 
 ##################################################### convenience functions ###
@@ -493,7 +493,7 @@ class TemplateFitTool(varial.tools.FSPlotter):
         self.fitbox_bounds = 0.3, 0.6, 0.87
         self.result = varial.wrappers.Wrapper()
         self.n_templates = 0
-        self.fitter = ThetaFitter()
+        self.fitter = Fitter()
         self.x_min = 0.
         self.x_max = 0.
         self.save_name_lambda = lambda w: w.name.split("_")[1]
