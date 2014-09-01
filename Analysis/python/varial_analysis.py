@@ -10,8 +10,9 @@ import varial.settings as s
 import ttdilep_samples
 import varial_plotters
 import varial_fitter
+import varial_plots4tex
 
-s.rootfile_postfixes = ['.root', '.png']
+s.rootfile_postfixes = ['.root', '.png', '.eps']
 fwlite_exe = os.path.join(
     os.environ['CMSSW_BASE'],
     'src/BTagDeltaR/Analysis/python/worker_vertexDR.py',
@@ -30,6 +31,7 @@ tc = varial.tools.ToolChain(
         varial_plotters.jet_plots,
         varial_plotters.SampleNormalizer(),
     # ] + varial_plotters.chains + [
+    #     varial_plots4tex.TexCrtlPlts(),
         varial_fitter.fitter_plots,
         varial_fitter.fitter_chain_sum,
         varial.tools.SimpleWebCreator(),
