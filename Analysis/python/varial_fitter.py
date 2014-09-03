@@ -10,8 +10,21 @@ import varial.generators as gen
 import varial.operations as op
 import varial_result
 
-#import theta_auto
-#theta_auto.config.theta_dir = os.environ["CMSSW_BASE"] + "/theta"
+try:
+    import pymc
+    import numpy
+except ImportError:
+    pymc = None
+    numpy = None
+
+try:
+    import theta_auto
+    theta_auto.config.theta_dir = os.environ["CMSSW_BASE"] + "/theta"
+except ImportError:
+    theta_auto = None
+
+
+varial.settings.store_mcmc = False
 
 
 ##################################################### convenience functions ###
@@ -51,6 +64,8 @@ class Fitter(object):
         self.fit_func = None
         self.fitted = None
         self.mc_tmplts = None
+        self.ndf = 0
+        self.val_err = []
 
     def build_fit_function(self, fitted, mc_tmplts, x_min, x_max):
         templates = [tw.histo for tw in mc_tmplts]
@@ -79,19 +94,23 @@ class Fitter(object):
         self.fitted.histo.Fit(
             self.fit_func, "WL M N", "", self.x_min, self.x_max
         )
+        self.val_err = list(
+            (self.fit_func.GetParameter(i_par),
+             self.fit_func.GetParError(i_par))
+            for i_par in xrange(len(self.mc_tmplts))
+        )
+        self.ndf = self.fit_func.GetNDF()
 
     def scale_templates_to_fit(self, templates):
         for i in range(0, len(templates)):
-            templates[i].histo.Scale(self.fit_func.GetParameter(i))
+            val, _ = self.get_val_err(i)
+            templates[i].histo.Scale(val)
 
     def get_val_err(self, i_par):
-        return (
-            self.fit_func.GetParameter(i_par),
-            self.fit_func.GetParError(i_par)
-        )
+        return self.val_err[i_par]
 
     def get_ndf(self):
-        return self.fit_func.GetNDF()
+        return self.ndf
 
     def get_chi2(self):
         return 0.
@@ -127,7 +146,6 @@ class ThetaFitter(Fitter):
         super(ThetaFitter, self).__init__()
         self.model = None
         self.fit_res = None
-        self.ndf = 0
 
     def _store_histos_for_theta(self, wrp):
         filename = os.path.join(varial.analysis.cwd, wrp.name + ".root")
@@ -150,7 +168,7 @@ class ThetaFitter(Fitter):
         )
         self.template_names = []
         for i, tmplt in enumerate(mc_tmplts):
-            name = 'template%02d' % (i+1)
+            name = 'template%02d' % (i + 1)
             self.template_names.append(name)
             setattr(theta_root_wrp, 'histo__' + name, tmplt.histo)
         self._store_histos_for_theta(theta_root_wrp)
@@ -167,10 +185,10 @@ class ThetaFitter(Fitter):
                 "bg_" + tmplt_name,
                 width=50.  # theta_auto.inf
             )
-        self.ndf_sum = sum(
+        self.ndf = sum(
             1
             for i in xrange(fitted.histo.GetNbinsX())
-            if fitted.histo.GetBinContent(i+1) > .05
+            if fitted.histo.GetBinContent(i + 1) > .05
         ) - len(self.template_names)
 
     def do_the_fit(self):
@@ -185,7 +203,6 @@ class ThetaFitter(Fitter):
         )[self.template_names[-1]]
         print self.fit_res
 
-    def scale_templates_to_fit(self, templates):
         par_values = {
             "beta_signal": self.fit_res["beta_signal"][0][0],
         }
@@ -195,7 +212,8 @@ class ThetaFitter(Fitter):
 
         self.val_err = []
         for tmplt_name in self.template_names[:-1]:
-            val = self.model.get_coeff("histo", tmplt_name).get_value(par_values)
+            val = self.model.get_coeff("histo", tmplt_name).get_value(
+                par_values)
             err = val * abs(self.fit_res["bg_" + tmplt_name][0][1]
                             / (self.fit_res["bg_" + tmplt_name][0][0] or 1e10))
             self.val_err.append((val, err))
@@ -203,17 +221,87 @@ class ThetaFitter(Fitter):
             self.fit_res["beta_signal"][0][0],
             abs(self.fit_res["beta_signal"][0][1])
         ))
-        for tmplt, val_err in zip(templates, self.val_err):
-                tmplt.histo.Scale(val_err[0])
-
-    def get_val_err(self, i_par):
-        return self.val_err[i_par]
-
-    def get_ndf(self):
-        return self.ndf_sum
 
     def get_chi2(self):
         return self.fit_res['__chi2'][0]
+
+
+class PyMCFitter(Fitter):
+    def build_fit_function(self, fitted, mc_tmplts, x_min, x_max):
+        self.x_min, self.x_max = x_min, x_max
+        self.fitted = fitted
+        self.mc_tmplts = mc_tmplts
+
+        # convert to numpy arrays
+        fitted_cont = numpy.fromiter(
+            (fitted.histo.GetBinContent(i)
+             for i in xrange(fitted.histo.GetNbinsX())),
+            dtype=float,
+            count=fitted.histo.GetNbinsX()
+        )
+        mc_tmplts_cont = list(numpy.fromiter(
+            (mc_t.histo.GetBinContent(i)
+             for i in xrange(mc_t.histo.GetNbinsX())),
+            dtype=float,
+            count=mc_t.histo.GetNbinsX()
+        ) for mc_t in mc_tmplts)
+        mc_tmplts_errs = list(numpy.fromiter(
+            (mc_t.histo.GetBinError(i) or .0001
+             for i in xrange(mc_t.histo.GetNbinsX())),
+            dtype=float,
+            count=mc_t.histo.GetNbinsX()
+        ) for mc_t in mc_tmplts)
+
+        # model
+        n_tmplts = len(mc_tmplts)
+        n_datapoints = len(fitted_cont)
+        mc_tmplts = pymc.Container(list(
+            pymc.Normal(('MC_%02d' % i),
+                        v[0],                                       # value
+                        numpy.vectorize(lambda x: x**-2)(v[1]),     # precision
+                        value=v[0],
+                        size=n_datapoints)
+            for i, v in enumerate(itertools.izip(mc_tmplts_cont,
+                                                 mc_tmplts_errs))
+        ))
+        mc_factors = pymc.Container(list(
+            pymc.Lognormal('factor_%02d' % i, 1., 1e-10, value=1.)
+            for i in xrange(n_tmplts)
+        ))
+
+        @pymc.deterministic
+        def fit_func(tmplts=mc_tmplts, factors=mc_factors):
+            return sum(
+                f * tmplt
+                for f, tmplt in itertools.izip(factors, tmplts)
+            )
+
+        fitted = pymc.Poisson('fitted', fit_func, fitted_cont,
+                              size=n_datapoints, observed=True)
+        model = pymc.Model([fitted, mc_factors, mc_tmplts])
+        if varial.settings.store_mcmc:
+            self.mcmc = pymc.MCMC(model, db='pickle',
+                                  dbname=varial.analysis.cwd + '/mcmc.pickle')
+        else:
+            self.mcmc = pymc.MCMC(model)
+
+        # for later reference
+        self.n_tmplts, self.n_datapoints = n_tmplts, n_datapoints
+        self.ndf = n_datapoints - n_tmplts
+
+    def do_the_fit(self):
+        f = self.n_tmplts**2 * self.n_datapoints
+        self.mcmc.sample(f * 100)  # , f * 50, 1)
+
+        self.val_err = list(
+            (trace.mean(), trace.var()**.5)
+            for trace in (self.mcmc.trace('factor_%02d' % i)[:, None]
+                          for i in xrange(self.n_tmplts))
+        )
+
+        if varial.settings.store_mcmc:
+            self.mcmc.db.close()
+
 
 ############################################################### Loading ... ###
 class HistoSlicer(varial.tools.Tool):
@@ -272,7 +360,7 @@ class FitHistosCreator(varial.tools.Tool):
         if self.re_bins:
             inp = gen.gen_rebin(inp, self.re_bins)
         inp = list(inp)
-        assert(len(inp) == 3)
+        assert (len(inp) == 3)
 
         # grab templates
         tmplts = inp[1:3]
@@ -392,8 +480,8 @@ class FitHistosCreatorSimultaneous(varial.tools.Tool):
                 h1_n_bins + h2_n_bins,
                 h1.GetXaxis().GetXmin(),
                 h1.GetXaxis().GetXmax()
-                    - h2.GetXaxis().GetXmin()
-                    + h2.GetXaxis().GetXmax(),
+                - h2.GetXaxis().GetXmin()
+                + h2.GetXaxis().GetXmax(),
             )
             #sqrt2 = 2**.5
             for j in range(h1_n_bins):
@@ -402,8 +490,8 @@ class FitHistosCreatorSimultaneous(varial.tools.Tool):
                 histo.SetBinError(i, h1.GetBinError(i))  # / sqrt2)
             for j in range(h2_n_bins):
                 i = j + h1_n_bins + 2
-                histo.SetBinContent(i, h2.GetBinContent(j+1))  # / 2.)
-                histo.SetBinError(i, h2.GetBinError(j+1))  # / sqrt2)
+                histo.SetBinContent(i, h2.GetBinContent(j + 1))  # / 2.)
+                histo.SetBinError(i, h2.GetBinError(j + 1))  # / sqrt2)
             return varial.wrappers.HistoWrapper(
                 histo,
                 **w1.all_info()
@@ -484,8 +572,9 @@ class FitHistosCreatorSimultaneous(varial.tools.Tool):
 ################################################################## Fit Tool ###
 import varial.rendering as rnd
 
+
 class TemplateFitTool(varial.tools.FSPlotter):
-    def __init__(self, input_result_path, name=None):
+    def __init__(self, input_result_path, fitter, name=None):
         super(TemplateFitTool, self).__init__(
             name, input_result_path=input_result_path)
         self.mc_tmplts = None
@@ -493,7 +582,7 @@ class TemplateFitTool(varial.tools.FSPlotter):
         self.fitbox_bounds = 0.3, 0.6, 0.87
         self.result = varial.wrappers.Wrapper()
         self.n_templates = 0
-        self.fitter = Fitter()
+        self.fitter = fitter
         self.x_min = 0.
         self.x_max = 0.
         self.save_name_lambda = lambda w: w.name.split("_")[1]
@@ -511,6 +600,7 @@ class TemplateFitTool(varial.tools.FSPlotter):
                 c.canvas.Modified()
                 c.canvas.Update()
                 yield c
+
         self.hook_pre_canvas_build = fix_ratio_histo_name
         self.hook_post_canvas_build = set_no_exp
 
@@ -621,7 +711,6 @@ fitter_plots = varial.tools.ToolChain(
     ]
 )
 
-
 fitter_chain = varial.tools.ToolChain(
     'TestFitChain', [
         varial.tools.FSHistoLoader(
@@ -639,14 +728,15 @@ fitter_chain = varial.tools.ToolChain(
             plot_setup=lambda w: [list(varial.tools.overlay_colorizer(
                 w, [1, ROOT.kRed + 2, ROOT.kRed - 7, ROOT.kSpring - 4]))]
         ),
-        TemplateFitTool(input_result_path='../FitHistosCreator'),
+        TemplateFitTool(fitter=Fitter(),
+                        input_result_path='../FitHistosCreator'),
     ]
 )
 
 
 def _mkchnsm(name, slice, coll):
     return varial.tools.ToolChain(
-        'FitChainSum'+name, [
+        'FitChainSum' + name, [
             varial.tools.FSHistoLoader(
                 filter_keyfunc=lambda w: w.name == 'VertexMassSumVsDr'
                                          and w.analyzer == coll,
@@ -676,7 +766,7 @@ def _mkchnsm(name, slice, coll):
 def _mkchnsmltn(slice, coll, re_bins):
     name = "from%02dto%02d_%s" % (slice[0], slice[1], coll)
     return varial.tools.ToolChain(
-        'FitChainSum'+name, [
+        'FitChainSum' + name, [
             varial.tools.FSHistoLoader(
                 filter_keyfunc=lambda w: w.name in ['VertexMassPtLeadVsDr',
                                                     'VertexMassPtSubLeadVsDr']
@@ -707,6 +797,7 @@ def _mkchnsmltn(slice, coll, re_bins):
                 hook_loaded_histos=gen.sort
             ),
             TemplateFitTool(name='TemplateFitToolData',
+                            fitter=PyMCFitter(),
                             input_result_path='../FitHistosCreatorSimultaneous'),
         ]
     )
@@ -723,14 +814,14 @@ fitter_chain_sum = varial.tools.ToolChain(
     'FitChainSum', [
         _mkchnsmltn((0, 10), c1, re_bins_2),
         _mkchnsmltn((10, 14), c1, re_bins_2),
-        _mkchnsmltn((14, 17), c1, re_bins_2),
-        _mkchnsmltn((17, 20), c1, re_bins_2),
-        _mkchnsmltn((20, 22), c1, re_bins_2),
+        # _mkchnsmltn((14, 17), c1, re_bins_2),
+        # _mkchnsmltn((17, 20), c1, re_bins_2),
+        # _mkchnsmltn((20, 22), c1, re_bins_2),
         _mkchnsmltn((0, 10), c2, re_bins_2),
         _mkchnsmltn((10, 14), c2, re_bins_2),
-        _mkchnsmltn((14, 17), c2, re_bins_3),
-        _mkchnsmltn((17, 20), c2, re_bins_2),
-        _mkchnsmltn((20, 22), c2, re_bins_2),
+        # _mkchnsmltn((14, 17), c2, re_bins_3),
+        # _mkchnsmltn((17, 20), c2, re_bins_2),
+        # _mkchnsmltn((20, 22), c2, re_bins_2),
         varial_result.summary_chain
     ]
 )
