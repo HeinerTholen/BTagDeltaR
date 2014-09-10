@@ -216,6 +216,15 @@ class Worker(fwliteworker.FwliteWorker):
             100, 0., 10.
         )
 
+        # 2D Template Fit
+        fs.VertexMass2DVsDr = ROOT.TH3D(
+            'VertexMass2DVsDr',
+            ';Vertex #Delta R; 1st Vertex Mass / GeV; 2nd Vertex Mass / GeV',
+            100, 0., 5.,
+            100, 0., 10.,
+            100, 0., 10.
+        )
+
         # NTracks Template Fit
         fs.VertexNTracksVsDr = ROOT.TH2D(
             'VertexNTracksVsDr',
@@ -522,6 +531,8 @@ class Worker(fwliteworker.FwliteWorker):
             fs.VertexNTracksSumVsDr.Fill(dr_mom, n_trk0 + n_trk1, w)
             fs.VertexMassPtLeadVsDr.Fill(dr_mom, mass_lead, w)
             fs.VertexMassPtSubLeadVsDr.Fill(dr_mom, mass_subl, w)
+            m_large, m_small = sorted((mass_lead, mass_subl))
+            fs.VertexMass2DVsDr.Fill(dr_mom, m_large, m_small)
 
             # fit templates
             if dr_mom < 0.1:

@@ -304,33 +304,47 @@ class PyMCFitter(Fitter):
 
 
 ############################################################### Loading ... ###
+@varial.history.track_history
+def get_slice_from_th2d(wrp, bin_low, bin_high):
+    name = wrp.name + 'from%dto%d' % (bin_low, bin_high)
+    histo = wrp.histo.ProjectionY('', bin_low, bin_high)
+    histo = histo.Clone()
+    histo.SetName(name)
+    histo.SetTitle(wrp.legend)
+    return varial.wrappers.HistoWrapper(histo, **wrp.all_info())
+
+
+def get_slice_from_th3d(wrp, bin_low, bin_high):
+    name = wrp.name + 'from%dto%d' % (bin_low, bin_high)
+    wrp.histo.GetXaxis().SetRange(bin_low, bin_high)
+    histo = wrp.histo.Project3D('zy')
+    wrp.histo.GetXaxis().SetRange(1, wrp.histo.GetNbinsX())
+    histo = histo.Clone()
+    histo.SetName(name)
+    histo.SetTitle(wrp.legend)
+    return varial.wrappers.HistoWrapper(histo, **wrp.all_info())
+
+
+def slice_generator(wrps, slices, func):
+    for wrp in wrps:
+        for low, high in slices:
+            yield func(wrp, low, high)
+
+
 class HistoSlicer(varial.tools.Tool):
     io = varial.dbio
 
-    def __init__(self, slices, name=None):
+    def __init__(self, slices, func=get_slice_from_th2d, name=None):
         super(HistoSlicer, self).__init__(name)
         self.slices = slices
+        self.func = func
 
     def run(self):
-        @varial.history.track_history
-        def get_slice_from_th2d(wrp, bin_low, bin_high):
-            name = wrp.name + 'from%dto%d' % (bin_low, bin_high)
-            histo = wrp.histo.ProjectionY('', bin_low, bin_high)
-            histo = histo.Clone()
-            histo.SetName(name)
-            histo.SetTitle(wrp.legend)
-            return varial.wrappers.HistoWrapper(histo, **wrp.all_info())
-
-        def slice_generator(wrps):
-            for wrp in wrps:
-                for low, high in self.slices:
-                    yield get_slice_from_th2d(wrp, low, high)
-
         wrps = filter(
             lambda w: isinstance(w.histo, ROOT.TH2D),
             self.lookup('../FSHistoLoader')
         )
-        wrps = slice_generator(wrps)
+        wrps = slice_generator(wrps, self.slices, self.func)
         #wrps = gen.gen_rebin(wrps, re_bins)
         self.result = list(wrps)
 
@@ -797,7 +811,7 @@ def _mkchnsmltn(slice, coll, re_bins):
                 hook_loaded_histos=gen.sort
             ),
             TemplateFitTool(name='TemplateFitToolData',
-                            fitter=PyMCFitter(),
+                            fitter=ThetaFitter(),
                             input_result_path='../FitHistosCreatorSimultaneous'),
         ]
     )
