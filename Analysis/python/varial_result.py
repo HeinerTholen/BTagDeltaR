@@ -2,10 +2,27 @@ import ctypes
 import itertools
 import pyparsing as p
 import re
+import os
 import ROOT
 import varial.analysis
 import varial.dbio
 import varial.tools
+
+
+class TemplateFitPlots(varial.tools.Tool):
+    def __init__(self, name=None, with_cuts=False):
+        super(TemplateFitPlots, self).__init__(name)
+        self.with_cuts = with_cuts
+
+    def run(self):
+        fit_chains = varial.analysis.lookup_children_names('../..')
+        for name in fit_chains:
+            if ('Cuts' in name) == self.with_cuts:
+                os.system('cp %sVertexMass* %s' % (
+                          varial.analysis.lookup_path(
+                              '../../%s/TemplateFitToolData' % name),
+                          self.cwd
+                ))
 
 
 class FitResultCollector(varial.tools.Tool):
@@ -72,6 +89,8 @@ class ScaleFactorsHisto(varial.tools.FSPlotter):
 
 summary_chain = varial.tools.ToolChain(
     "Summary", [
+        TemplateFitPlots(),
+        TemplateFitPlots('TemplateFitPlotsCuts', True),
         FitResultCollector(),
         ScaleFactorsHisto(),
         ScaleFactorsHisto('ScaleFactorsHistoCuts', True),

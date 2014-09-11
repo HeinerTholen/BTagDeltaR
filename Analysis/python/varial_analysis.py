@@ -26,8 +26,8 @@ tc = varial.tools.ToolChain(
     "ttdilep_analysis",
     [
         varial.tools.FwliteProxy(fwlite_exe),
-        varial.tools.ZipTool('ttdilep_analysis/FwliteProxy'),
-        varial.tools.CopyTool(os.path.join(os.environ['HOME'], 'www/btagdr/ana/'), name="ZipFileCopyTool",),
+    #     varial.tools.ZipTool('ttdilep_analysis/FwliteProxy'),
+    #     varial.tools.CopyTool(os.path.join(os.environ['HOME'], 'www/btagdr/ana/'), name="ZipFileCopyTool",),
         varial_plotters.jet_plots,
         varial_plotters.SampleNormalizer(),
     # ] + varial_plotters.chains + [

@@ -1,3 +1,4 @@
+import ctypes
 import itertools
 import os
 import ROOT
@@ -183,7 +184,7 @@ class ThetaFitter(Fitter):
                 "bg_" + tmplt_name, 1., tmplt_name)
             self.model.distribution.set_distribution_parameters(
                 "bg_" + tmplt_name,
-                width=50.  # theta_auto.inf
+                width=theta_auto.inf
             )
         self.ndf = sum(
             1
@@ -246,11 +247,18 @@ class PyMCFitter(Fitter):
             count=mc_t.histo.GetNbinsX()
         ) for mc_t in mc_tmplts)
         mc_tmplts_errs = list(numpy.fromiter(
-            (mc_t.histo.GetBinError(i) or .0001
+            (mc_t.histo.GetBinError(i) or 1e-7
              for i in xrange(mc_t.histo.GetNbinsX())),
             dtype=float,
             count=mc_t.histo.GetNbinsX()
         ) for mc_t in mc_tmplts)
+
+        # remove entries without prediction
+        all_mc = sum(mc_tmplts_cont)
+        mask = numpy.nonzero(all_mc)
+        fitted_cont = fitted_cont[mask]
+        mc_tmplts_cont = list(d[mask] for d in mc_tmplts_cont)
+        mc_tmplts_errs = list(d[mask] for d in mc_tmplts_errs)
 
         # model
         n_tmplts = len(mc_tmplts)
@@ -285,12 +293,13 @@ class PyMCFitter(Fitter):
         else:
             self.mcmc = pymc.MCMC(model)
 
+
         # for later reference
         self.n_tmplts, self.n_datapoints = n_tmplts, n_datapoints
         self.ndf = n_datapoints - n_tmplts
 
     def do_the_fit(self):
-        f = self.n_tmplts**2 * self.n_datapoints
+        f = self.n_tmplts * self.n_datapoints
         self.mcmc.sample(f * 100)  # , f * 50, 1)
 
         self.val_err = list(
@@ -306,7 +315,7 @@ class PyMCFitter(Fitter):
 ############################################################### Loading ... ###
 @varial.history.track_history
 def get_slice_from_th2d(wrp, bin_low, bin_high):
-    name = wrp.name + 'from%dto%d' % (bin_low, bin_high)
+    name = wrp.name + 'from%02dto%d' % (bin_low, bin_high)
     histo = wrp.histo.ProjectionY('', bin_low, bin_high)
     histo = histo.Clone()
     histo.SetName(name)
@@ -315,14 +324,21 @@ def get_slice_from_th2d(wrp, bin_low, bin_high):
 
 
 def get_slice_from_th3d(wrp, bin_low, bin_high):
-    name = wrp.name + 'from%dto%d' % (bin_low, bin_high)
+    name = wrp.name + 'from%02dto%d' % (bin_low, bin_high)
     wrp.histo.GetXaxis().SetRange(bin_low, bin_high)
-    histo = wrp.histo.Project3D('zy')
+    h = wrp.histo.Project3D('yz')
     wrp.histo.GetXaxis().SetRange(1, wrp.histo.GetNbinsX())
-    histo = histo.Clone()
-    histo.SetName(name)
-    histo.SetTitle(wrp.legend)
-    return varial.wrappers.HistoWrapper(histo, **wrp.all_info())
+    x_bins, y_bins = h.GetNbinsX(), h.GetNbinsY()
+    flat_h = ROOT.TH1D(
+        name, wrp.legend,
+        x_bins * y_bins,
+        0., h.GetXaxis().GetXmax() * y_bins
+    )
+    for j in xrange(y_bins):
+        for i in xrange(1, x_bins + 1):
+            flat_h.SetBinContent(i + j*(x_bins-1), h.GetBinContent(i, j+1))
+            flat_h.SetBinError(i + j*(x_bins-1), h.GetBinError(i, j+1))
+    return varial.wrappers.HistoWrapper(flat_h, **wrp.all_info())
 
 
 def slice_generator(wrps, slices, func):
@@ -334,18 +350,22 @@ def slice_generator(wrps, slices, func):
 class HistoSlicer(varial.tools.Tool):
     io = varial.dbio
 
-    def __init__(self, slices, func=get_slice_from_th2d, name=None):
+    def __init__(self, slices, func=get_slice_from_th2d,
+                 re_bins=None, name=None):
         super(HistoSlicer, self).__init__(name)
         self.slices = slices
         self.func = func
+        self.re_bins = re_bins
 
     def run(self):
         wrps = filter(
-            lambda w: isinstance(w.histo, ROOT.TH2D),
+            lambda w: isinstance(w.histo, ROOT.TH2D)
+                      or isinstance(w.histo, ROOT.TH3D),
             self.lookup('../FSHistoLoader')
         )
         wrps = slice_generator(wrps, self.slices, self.func)
-        #wrps = gen.gen_rebin(wrps, re_bins)
+        if self.re_bins:
+            wrps = gen.gen_rebin(wrps, self.re_bins)
         self.result = list(wrps)
 
 
@@ -817,25 +837,73 @@ def _mkchnsmltn(slice, coll, re_bins):
     )
 
 
-re_bins_1 = list(i / 10. for i in xrange(0, 60, 1))
-re_bins_2 = list(i / 10. for i in xrange(0, 60, 2))
-re_bins_3 = list(i / 10. for i in xrange(0, 60, 3))
-re_bins_4 = list(i / 10. for i in xrange(0, 60, 4))
+def _mkchn2d(slice, coll, re_bins):
+    def rebin_3d(wrps):
+        for wrp in wrps:
+            wrp.histo.Rebin3D(1, 10, 10, "")
+            yield wrp
+
+    name = "from%02dto%02d_%s" % (slice[0], slice[1], coll)
+    return varial.tools.ToolChain(
+        'FitChainSum' + name, [
+            varial.tools.FSHistoLoader(
+                filter_keyfunc=lambda w: w.name in ['VertexMass2DVsDr']
+                                         and w.analyzer == coll,
+                hook_loaded_histos=rebin_3d,
+                io=varial.diskio
+            ),
+            HistoSlicer([slice], func=get_slice_from_th3d, re_bins=re_bins),
+            FitHistosCreatorSum(
+                False, name='FitHistosCreatorSum'),
+            varial.tools.FSPlotter(
+                'TemplatesAndFittedHisto',
+                input_result_path='../FitHistosCreatorSum',
+                plot_grouper=gen.gen_copy,
+                plot_setup=lambda ws: [list(
+                    varial.tools.overlay_colorizer(
+                        gen.apply_histo_linewidth(
+                            gen.gen_norm_to_integral(
+                                filter(lambda w: not w.is_data, ws)
+                            )
+                        ),
+                        [ROOT.kRed + 2, ROOT.kRed - 7, ROOT.kSpring - 4]
+                    )
+                )],
+                canvas_decorators=[varial.rendering.Legend],
+            ),
+            varial.tools.FSPlotter(
+                'MassSlicePlots',
+                input_result_path="../HistoSlicer",
+                hook_loaded_histos=gen.sort
+            ),
+            TemplateFitTool(name='TemplateFitToolData',
+                            fitter=ThetaFitter(),
+                            input_result_path='../FitHistosCreatorSum'),
+        ]
+    )
+
+re_bins_1 = list(i / 1. for i in xrange(0, 50, 1))
+re_bins_2 = list(i / 2. for i in xrange(0, 200, 1))
+re_bins_3 = list(
+    b + i
+    for i in xrange(0, 60, 10)
+    for b in [0., 1., 2.0, 3.0, 4.0]
+) + [100.]
 dr_bins = ((0, 10), (10, 14), (14, 17), (17, 20), (20, 22))
 c1 = 'IvfB2cMerged'
 c2 = 'IvfB2cMergedCuts'
 fitter_chain_sum = varial.tools.ToolChain(
     'FitChainSum', [
-        _mkchnsmltn((0, 10), c1, re_bins_2),
-        _mkchnsmltn((10, 14), c1, re_bins_2),
-        # _mkchnsmltn((14, 17), c1, re_bins_2),
-        # _mkchnsmltn((17, 20), c1, re_bins_2),
-        # _mkchnsmltn((20, 22), c1, re_bins_2),
-        _mkchnsmltn((0, 10), c2, re_bins_2),
-        _mkchnsmltn((10, 14), c2, re_bins_2),
-        # _mkchnsmltn((14, 17), c2, re_bins_3),
-        # _mkchnsmltn((17, 20), c2, re_bins_2),
-        # _mkchnsmltn((20, 22), c2, re_bins_2),
+        _mkchn2d((0, 10),  c1, re_bins_1),
+        _mkchn2d((10, 14), c1, re_bins_1),
+        _mkchn2d((14, 17), c1, re_bins_1),
+        # _mkchn2d((17, 20), c1, re_bins_1),
+        # _mkchn2d((20, 22), c1, re_bins_1),
+        _mkchn2d((0, 10),  c2, re_bins_1),
+        _mkchn2d((10, 14), c2, re_bins_1),
+        _mkchn2d((14, 17), c2, re_bins_1),
+        # _mkchn2d((17, 20), c2, re_bins_1),
+        # _mkchn2d((20, 22), c2, re_bins_1),
         varial_result.summary_chain
     ]
 )
