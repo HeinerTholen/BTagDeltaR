@@ -1,19 +1,32 @@
 import ROOT
 
 from varial.sample import Sample
+from varial import settings
 from glob import glob
 
 
-colors = {
+settings.colors = {
     'Di-boson': ROOT.kYellow,
     'Single top': ROOT.kMagenta,
     'DY + jets': ROOT.kBlue,
     'W + jets': ROOT.kOrange,
     'TTbar': ROOT.kRed,
-    'TTbar (no match)': ROOT.kRed - 9,
-    'TTbar (1 match)': ROOT.kRed - 4,
-    'TTbar (2 matches)': ROOT.kRed + 1,
+    'TTbar (no match)': ROOT.kRed + 3,
+    'TTbar (1 match)': ROOT.kRed + 1,
+    'TTbar (B+D match)': ROOT.kPink - 2,
+    'TTbar (2 matches)': ROOT.kRed - 9,
 }
+settings.stacking_order = [
+    'Di-boson',
+    'Single top',
+    'DY + jets',
+    'W + jets',
+    'TTbar',
+    'TTbar (no match)',
+    'TTbar (1 match)',
+    'TTbar (B+D match)',
+    'TTbar (2 matches)',
+]
 
 
 class TTDilepEMuSample(Sample):
@@ -89,12 +102,12 @@ smp_emu_mc.append(TTDilepEMuSample(
     legend='DY + jets',
 ))
 
-smp_emu_mc.append(TTDilepEMuSample(
-    name='WJets',
-    x_sec=37509.,
-    n_events=57709905,
-    legend='W + jets',
-))
+#smp_emu_mc.append(TTDilepEMuSample(
+#    name='WJets',
+#    x_sec=37509.,
+#    n_events=57709905,
+#    legend='W + jets',
+#))
 
 smp_emu_mc.append(TTDilepEMuSample(
     name='TTbarNoMatch',
@@ -124,14 +137,12 @@ smp_emu_mc.append(TTDilepEMuSample(
     legend='TTbar (2 matches)',
 ))
 
-"""
 smp_emu_mc.append(TTDilepEMuSample(
     name='TTbar',
     x_sec=245./9.,
     n_events=12116717,  # * 15051. / 522465.,
     legend='TTbar',
 ))
-"""
 # presel: 522465
 # smp_emu_mc[-1].input_files = smp_emu_mc[-1].input_files[:12]
 

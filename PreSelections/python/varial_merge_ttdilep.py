@@ -6,6 +6,7 @@ ROOT.gROOT.SetBatch()
 import varial
 import varial.main
 import varial.sample
+import varial.tools
 
 
 tmp_dataset = '_tmp_das_datasets.txt'
@@ -49,7 +50,10 @@ def main():
             os.system(dbs_command_files % (dataset, sample))
             used_das_client = True
         with open(tmp_files % sample) as f:
-            files[sample] = f.readlines()
+            files[sample] = map(
+                lambda s: 'file:/pnfs/desy.de/cms/tier2'+s,
+                f.readlines()
+            )
 
     if used_das_client:
         os.system("head -3 _tmp_das_*")
@@ -77,9 +81,13 @@ def main():
             ))
 
     varial.main.main(
+        toolchain=varial.tools.CmsRunProxy(
+            "BTagDeltaR.PreSelections.MergeTtdilep_cfg",
+            use_file_service=False,
+            name='cmsrun_output',
+        ),
         samples=samples,
-        cmsRun_use_file_service=False,
-        cmsRun_main_import_path="BTagDeltaR.PreSelections.MergeTtdilep_cfg"
+        max_num_processes=8
     )
 
 

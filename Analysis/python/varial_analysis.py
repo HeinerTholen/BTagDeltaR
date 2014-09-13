@@ -2,35 +2,53 @@ import os
 
 import ROOT
 ROOT.gROOT.SetBatch()
+ROOT.gROOT.ProcessLine('gErrorIgnoreLevel = kError;')
 import varial.main
 import varial.tools
 import varial.settings as s
+
 import ttdilep_samples
+import varial_plotters
+import varial_fitter
+import varial_plots4tex
 
-
-s.web_target_dir = '/afs/desy.de/user/t/tholenhe/www/btagdr/ana/'
-s.colors = ttdilep_samples.colors
-s.rootfile_postfixes = ['.root', '.png']
-s.fwlite_executable = os.path.join(
+s.rootfile_postfixes = ['.root', '.png', '.eps']
+fwlite_exe = os.path.join(
     os.environ['CMSSW_BASE'],
     'src/BTagDeltaR/Analysis/python/worker_vertexDR.py',
 )
 
-
 samples = ttdilep_samples.smp_emu_mc + ttdilep_samples.smp_emu_data
+active_samples = list(s.name for s in samples)
+active_samples.remove('TTbar')
+
 tc = varial.tools.ToolChain(
     "ttdilep_analysis",
     [
-        varial.tools.FwliteProxy(),
-        varial.tools.FSStackPlotter(keep_stacks_as_result=True),
+        varial.tools.FwliteProxy(fwlite_exe),
+    #     varial.tools.ZipTool('ttdilep_analysis/FwliteProxy'),
+    #     varial.tools.CopyTool(os.path.join(os.environ['HOME'], 'www/btagdr/ana/'), name="ZipFileCopyTool",),
+        varial_plotters.jet_plots,
+        varial_plotters.SampleNormalizer(),
+    # ] + varial_plotters.chains + [
+    #     varial_plots4tex.TexCrtlPlts(),
+        varial_fitter.fitter_plots,
+        varial_fitter.fitter_chain_sum,
         varial.tools.SimpleWebCreator(),
+        varial.tools.CopyTool(
+            os.path.join(os.environ['HOME'], 'www/btagdr/ana/')),
     ]
 )
 
 
-if __name__ == '__main__':
+def main():
     varial.main.main(
         samples=samples,
+        active_samples=active_samples,
         toolchain=tc,
-#        max_num_processes=1,
     )
+
+
+if __name__ == '__main__':
+    main()
+
