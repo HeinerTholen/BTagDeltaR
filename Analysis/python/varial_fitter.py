@@ -286,30 +286,32 @@ class PyMCFitter(Fitter):
 
         fitted = pymc.Poisson('fitted', fit_func, fitted_cont,
                               size=n_datapoints, observed=True)
-        model = pymc.Model([fitted, mc_factors, mc_tmplts])
-        if varial.settings.store_mcmc:
-            self.mcmc = pymc.MCMC(model, db='pickle',
-                                  dbname=varial.analysis.cwd + '/mcmc.pickle')
-        else:
-            self.mcmc = pymc.MCMC(model)
-
+        self.model = pymc.Model([fitted, mc_factors, mc_tmplts])
 
         # for later reference
         self.n_tmplts, self.n_datapoints = n_tmplts, n_datapoints
         self.ndf = n_datapoints - n_tmplts
 
     def do_the_fit(self):
-        f = self.n_tmplts * self.n_datapoints
-        self.mcmc.sample(f * 100)  # , f * 50, 1)
+
+        # pymc.MAP(self.model).fit(method='fmin_powell')
+
+        if varial.settings.store_mcmc:
+            mcmc = pymc.MCMC(self.model, db='pickle',
+                             dbname=varial.analysis.cwd + '/mcmc.pickle')
+        else:
+            mcmc = pymc.MCMC(self.model)
+
+        mcmc.sample(100000, 50000, 4)
 
         self.val_err = list(
             (trace.mean(), trace.var()**.5)
-            for trace in (self.mcmc.trace('factor_%02d' % i)[:, None]
+            for trace in (mcmc.trace('factor_%02d' % i)[:, None]
                           for i in xrange(self.n_tmplts))
         )
 
         if varial.settings.store_mcmc:
-            self.mcmc.db.close()
+            mcmc.db.close()
 
 
 ############################################################### Loading ... ###
@@ -877,7 +879,7 @@ def _mkchn2d(slice, coll, re_bins):
                 hook_loaded_histos=gen.sort
             ),
             TemplateFitTool(name='TemplateFitToolData',
-                            fitter=ThetaFitter(),
+                            fitter=PyMCFitter(),
                             input_result_path='../FitHistosCreatorSum'),
         ]
     )
