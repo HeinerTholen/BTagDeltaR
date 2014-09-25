@@ -116,6 +116,9 @@ class Fitter(object):
     def get_chi2(self):
         return 0.
 
+    def get_total_fit_err(self, mc_integrals):
+        return 0.
+
     def make_fit_result(self, result_wrp, mc_tmplts):
         r = result_wrp
         r.Chi2 = self.get_chi2() or gen.op.chi2(
@@ -123,7 +126,6 @@ class Fitter(object):
         ).float
         r.NDF = self.get_ndf()
         r.FitProb = ROOT.TMath.Prob(r.Chi2, r.NDF)
-        r.dataIntegral = self.fitted.histo.Integral()
         r.legend = []
         r.value = []
         r.error = []
@@ -140,6 +142,9 @@ class Fitter(object):
             r.binIntegralScaledError.append(
                 r.binIntegralScaled[-1] * r.error[-1] / r.value[-1]
             )
+        r.dataIntegral = self.fitted.histo.Integral()
+        r.dataIntegralSqrt = r.dataIntegral**.5
+        r.dataIntegralFitErr = self.get_total_fit_err(r.binIntegralMC)
 
 
 class ThetaFitter(Fitter):
@@ -201,6 +206,7 @@ class ThetaFitter(Fitter):
             1,
             chi2=True,
             options=options,
+            with_covariance=True,
         )[self.template_names[-1]]
         print self.fit_res
 
@@ -225,6 +231,17 @@ class ThetaFitter(Fitter):
 
     def get_chi2(self):
         return self.fit_res['__chi2'][0]
+
+    def get_total_fit_err(self, mc_integrals):
+        vec = mc_integrals
+        for i in range(len(vec) - 1):
+            vec[i] *= self.val_err[i][0] / self.fit_res[
+                "bg_" + self.template_names[i]][0][0]
+        vec = vec[-1:] + vec[:-1]  # sort signal to front
+        vec = numpy.array(vec)
+
+        cov = self.fit_res['__cov'][0]
+        return numpy.dot(numpy.dot(vec, cov), vec)**.5
 
 
 class PyMCFitter(Fitter):
@@ -879,7 +896,7 @@ def _mkchn2d(slice, coll, re_bins):
                 hook_loaded_histos=gen.sort
             ),
             TemplateFitTool(name='TemplateFitToolData',
-                            fitter=PyMCFitter(),
+                            fitter=ThetaFitter(),
                             input_result_path='../FitHistosCreatorSum'),
         ]
     )
@@ -891,21 +908,26 @@ re_bins_3 = list(
     for i in xrange(0, 60, 10)
     for b in [0., 1., 2.0, 3.0, 4.0]
 ) + [100.]
-dr_bins = ((0, 10), (10, 14), (14, 17), (17, 20), (20, 22))
+re_bins_4 = list(
+    b + i
+    for i in xrange(0, 30, 10)
+    for b in [0., 1., 2.0, 3.0, 4.0]
+)[:-1] + [30., 50.]
+dr_bins = ((0, 10), (10, 16), (16, 20), (20, 22), (22, 24))
 c1 = 'IvfB2cMerged'
 c2 = 'IvfB2cMergedCuts'
 fitter_chain_sum = varial.tools.ToolChain(
     'FitChainSum', [
-        _mkchn2d((0, 10),  c1, re_bins_1),
-        _mkchn2d((10, 14), c1, re_bins_1),
-        _mkchn2d((14, 17), c1, re_bins_1),
+        _mkchn2d((0, 10),  c1, re_bins_4),
+        _mkchn2d((10, 16), c1, re_bins_4),
+        _mkchn2d((16, 20), c1, re_bins_4),
         # _mkchn2d((17, 20), c1, re_bins_1),
         # _mkchn2d((20, 22), c1, re_bins_1),
-        _mkchn2d((0, 10),  c2, re_bins_1),
-        _mkchn2d((10, 14), c2, re_bins_1),
-        _mkchn2d((14, 17), c2, re_bins_1),
-        # _mkchn2d((17, 20), c2, re_bins_1),
-        # _mkchn2d((20, 22), c2, re_bins_1),
+        _mkchn2d((0, 10),  c2, re_bins_4),
+        _mkchn2d((10, 16), c2, re_bins_4),
+        _mkchn2d((16, 20), c2, re_bins_4),
+        # _mkchn2d((17, 20), c2, re_bins_4),
+        # _mkchn2d((20, 22), c2, re_bins_4),
         varial_result.summary_chain
     ]
 )
