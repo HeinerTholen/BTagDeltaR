@@ -63,7 +63,8 @@ dist_plotter2 = varial.tools.FSPlotter(
 def _mkchn(analyzer):
     return varial.tools.ToolChainIndie(
         analyzer, [
-            varial.tools.FSHistoLoader(None, lambda w: analyzer == w.analyzer),
+            varial.tools.FSHistoLoader(
+                None, lambda w: analyzer == w.analyzer, io=varial.diskio),
             stack_plotter,
             beedee_plotter,
             dist_plotter,

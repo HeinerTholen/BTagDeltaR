@@ -28,9 +28,14 @@ tc = varial.tools.ToolChain(
         varial.tools.FwliteProxy(fwlite_exe),
     #     varial.tools.ZipTool('ttdilep_analysis/FwliteProxy'),
     #     varial.tools.CopyTool(os.path.join(os.environ['HOME'], 'www/btagdr/ana/'), name="ZipFileCopyTool",),
-    # ] + varial_plotters.chains + [
-    #     varial_plots4tex.TexCrtlPlts(),
+    ] + varial_plotters.chains + [
         varial_fitter.fitter_plots,
+        varial_plots4tex.TexCrtlPlts(),
+        varial_plots4tex.TexMassTemplatePlot(),
+        varial_plots4tex.Tex2DMassPlot(),
+        varial_plots4tex.TexTemplateFits(),
+        varial_plots4tex.TexTemplateFitsCuts(),
+        varial_plots4tex.TexScaleFactors(),
         varial_fitter.fitter_chain_sum,
         varial.tools.SimpleWebCreator(),
         varial.tools.CopyTool(

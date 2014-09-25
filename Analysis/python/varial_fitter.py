@@ -342,11 +342,19 @@ def get_slice_from_th2d(wrp, bin_low, bin_high):
 def get_slice_from_th3d(wrp, bin_low, bin_high):
     name = wrp.name + 'from%02dto%d' % (bin_low, bin_high)
     wrp.histo.GetXaxis().SetRange(bin_low, bin_high)
-    h = wrp.histo.Project3D('yz')
+    histo = wrp.histo.Project3D('yz')
     wrp.histo.GetXaxis().SetRange(1, wrp.histo.GetNbinsX())
+    histo = histo.Clone()
+    histo.SetName(name)
+    histo.SetTitle(wrp.legend)
+    return varial.wrappers.HistoWrapper(histo, **wrp.all_info())
+
+
+def queue_2d_into_1d(wrp):
+    h = wrp.histo
     x_bins, y_bins = h.GetNbinsX(), h.GetNbinsY()
     flat_h = ROOT.TH1D(
-        name, wrp.legend,
+        wrp.name, wrp.legend,
         x_bins * y_bins,
         0., h.GetXaxis().GetXmax() * y_bins
     )
@@ -868,7 +876,20 @@ def _mkchn2d(slice, coll, re_bins):
                 hook_loaded_histos=rebin_3d,
                 io=varial.diskio
             ),
-            HistoSlicer([slice], func=get_slice_from_th3d, re_bins=re_bins),
+            varial.tools.FSPlotter(
+                "VertexMassData2D",
+                input_result_path="../HistoSlicer",
+                filter_keyfunc=lambda w: w.is_data,
+                hook_loaded_histos=lambda wrp: (
+                    get_slice_from_th3d(w, slice[0], slice[1])
+                    for w in [op.sum(wrp)]
+                )
+            ),
+            HistoSlicer(
+                [slice],
+                func=lambda w,a,b: queue_2d_into_1d(get_slice_from_th3d(w,a,b)),
+                re_bins=re_bins
+            ),
             FitHistosCreatorSum(
                 False, name='FitHistosCreatorSum'),
             varial.tools.FSPlotter(
