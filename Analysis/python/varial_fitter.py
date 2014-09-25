@@ -144,7 +144,7 @@ class Fitter(object):
             )
         r.dataIntegral = self.fitted.histo.Integral()
         r.dataIntegralSqrt = r.dataIntegral**.5
-        r.dataIntegralFitErr = self.get_total_fit_err(r.binIntegralMC)
+        r.totalIntegralFitErr = self.get_total_fit_err(r.binIntegralMC)
 
 
 class ThetaFitter(Fitter):
@@ -185,11 +185,12 @@ class ThetaFitter(Fitter):
         )
         self.model.set_signal_processes([self.template_names[-1]])
         for tmplt_name in self.template_names[:-1]:
-            self.model.add_lognormal_uncertainty(
-                "bg_" + tmplt_name, 1., tmplt_name)
-            self.model.distribution.set_distribution_parameters(
-                "bg_" + tmplt_name,
-                width=theta_auto.inf
+            self.model.get_coeff(
+                "histo", tmplt_name).add_factor(
+                    'id', parameter='bg_' + tmplt_name)
+            self.model.distribution.set_distribution(
+                'bg_' + tmplt_name,
+                'gauss', 1.0, theta_auto.inf, [0.0, theta_auto.inf]
             )
         self.ndf = sum(
             1
@@ -221,8 +222,7 @@ class ThetaFitter(Fitter):
         for tmplt_name in self.template_names[:-1]:
             val = self.model.get_coeff("histo", tmplt_name).get_value(
                 par_values)
-            err = val * abs(self.fit_res["bg_" + tmplt_name][0][1]
-                            / (self.fit_res["bg_" + tmplt_name][0][0] or 1e10))
+            err = self.fit_res["bg_" + tmplt_name][0][1]
             self.val_err.append((val, err))
         self.val_err.append((
             self.fit_res["beta_signal"][0][0],
@@ -234,9 +234,6 @@ class ThetaFitter(Fitter):
 
     def get_total_fit_err(self, mc_integrals):
         vec = mc_integrals
-        for i in range(len(vec) - 1):
-            vec[i] *= self.val_err[i][0] / self.fit_res[
-                "bg_" + self.template_names[i]][0][0]
         vec = vec[-1:] + vec[:-1]  # sort signal to front
         vec = numpy.array(vec)
 
