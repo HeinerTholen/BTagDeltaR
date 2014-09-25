@@ -1,9 +1,10 @@
+import os
 import ROOT
 ROOT.gROOT.SetBatch()
 ROOT.TH1.AddDirectory(False)
 
 from libMyUtilityPythonUtil import get_2d_3d_distances
-from varial import fwliteworker
+from varial import diskio, fwliteworker
 from MyUtility.PythonUtil.genParticles import *
 from MyUtility.PythonUtil.eventlooputility import *
 from DataFormats.FWLite import Events, Handle
@@ -17,7 +18,12 @@ h_pu_weight = Handle("double")
 h_pv = Handle("vector<reco::Vertex>")
 h_ivf_normal = Handle("vector<reco::Vertex>")
 h_ivf_merged = Handle("vector<reco::MergedVertex>")
-h_jets = Handle("vector<pat::Jet>")
+h_ele = Handle("vector<pat::Electron>")
+h_muon = Handle("vector<pat::Muon>")
+sf_data_path = os.path.join(
+    os.environ['CMSSW_BASE'],
+    'src/BTagDeltaR/ScaleFactorsData',
+)
 
 
 def get_tuples_with_flight_dirs(vertices, primary_vertex):
@@ -57,18 +63,37 @@ class PreWorker(fwliteworker.FwliteWorker):
         self.h_pv = h_pv
         self.h_ivf_normal = h_ivf_normal
         self.h_ivf_merged = h_ivf_merged
-        self.h_jets = h_jets
+        self.h_ele = h_ele
+        self.h_muon = h_muon
 
         fs = self.result
         fs.NumInEvts = ROOT.TH1D('NumInEvts', 'NumInEvts', 1, 0.5, 1.5)
         fs.NumInEvts.Fill(1., init_wrp.event_handle.size())
 
+        self.is_real_data = "Run" in init_wrp.sample
+        if not self.is_real_data:
+            # ele full sf: electronsDATAMCratio_FO_ID_ISO
+            # mu iso sf: DATA_over_MC_combRelIsoPF04dBeta<012_Tight_eta_pt20-500
+            # mu id sf: DATA_over_MC_Tight_eta_pt20-500
+            aliases = list(diskio.generate_aliases(sf_data_path + "/*.root"))
+            self.fs_ele_id = diskio.load_bare_object(
+                filter(lambda a: a.name == 'electronsDATAMCratio_FO_ID_ISO',
+                       aliases)[0]
+            )
+            self.fs_mu_id = diskio.load_bare_object(
+                filter(lambda a: a.name ==
+                    'DATA_over_MC_combRelIsoPF04dBeta<012_Tight_eta_pt20-500',
+                       aliases)[0]
+            )
+            self.fs_mu_trg = diskio.load_bare_object(
+                filter(lambda a: a.name == 'DATA_over_MC_Tight_eta_pt20-500',
+                       aliases)[0]
+            )
+
     def node_process_event(self, event):
         self.weight = 1.
         event.getByLabel("offlinePrimaryVertices", self.h_pv)
         self.pv = self.h_pv.product()[0]
-        event.getByLabel("selectedPatJetsPF", self.h_jets)
-        self.jets = h_jets.product()
 
         # prepare ivf collections
         def mk_ivf_coll(label, handle):
@@ -81,13 +106,29 @@ class PreWorker(fwliteworker.FwliteWorker):
         mk_ivf_coll("inclusiveMergedVerticesFiltered", self.h_ivf_normal)
         mk_ivf_coll("bToCharmDecayVertexMerged", self.h_ivf_merged)
 
-        self.is_real_data = "Run" in self.init_wrp.sample
         if not self.is_real_data:
+            # fetch gen particles
             event.getByLabel("genParticles", self.h_gen_particles)
             self.gen_particles = self.h_gen_particles.product()
             self.fin_b = final_b_hadrons(self.gen_particles)
             self.fin_d = final_d_hadrons(self.gen_particles)
 
+            # event weight muon sf
+            event.getByLabel("goodPatMuonsPF", self.h_muon)
+            mu_eta = h_muon.product()[0].p4().eta()
+            self.weight *= self.fs_mu_id.Eval(mu_eta)
+            self.weight *= self.fs_mu_trg.Eval(mu_eta)
+
+            # event weight ele sf
+            event.getByLabel("selectedPatElectronsPF", self.h_ele)
+            ele_p4 = h_ele.product()[0].p4(2)
+            ele_pt, ele_eta = ele_p4.pt(), abs(ele_p4.eta())
+            if ele_pt < 200.:
+                self.weight *= self.fs_ele_id.GetBinContent(
+                    self.fs_ele_id.FindBin(ele_eta, ele_pt)
+                )
+
+            # event weight pu
             event.getByLabel("puWeight", "PUWeightTrue", self.h_pu_weight)
             self.weight *= self.h_pu_weight.product()[0]
 
@@ -95,37 +136,6 @@ class PreWorker(fwliteworker.FwliteWorker):
         del init_wrp.pre_worker
         print "Done:", init_wrp.sample, \
             init_wrp.event_handle.size(), init_wrp.filenames
-
-
-############################################### Jet Plots for Normalization ###
-class JetWorker(fwliteworker.FwliteWorker):
-    def node_setup(self, init_wrp):
-        self.init_wrp = init_wrp
-        fs = self.result
-
-        fs.make(
-            "SelectedPatJetPt",
-            ";selectedPatJets: p_{T}; number of events",
-            100, 0., 500.
-        )
-        fs.make(
-            "SelectedPatJetEta",
-            ";selectedPatJets: #eta; number of events",
-            100, -3.5, 3.5
-        )
-
-    def node_process_event(self, event):
-        sample = self.init_wrp.sample
-        if 'TTbar' in sample and 'NoMatch' not in sample:
-            return
-
-        fs = self.result
-        pre_worker = self.init_wrp.pre_worker
-        w = pre_worker.weight
-        jets = pre_worker.jets
-        for j in jets:
-            fs.SelectedPatJetPt.Fill(j.pt(), w)
-            fs.SelectedPatJetEta.Fill(j.eta(), w)
 
 
 ########################################### Vertex Selection and Histograms ###
@@ -644,11 +654,10 @@ vtx_no_dr_lt_1p0 = lambda vtx: vtx if not has_dr_lt(vtx, 1.0) else list()
 ####################################################### Worker Organization ###
 workers = [
     PreWorker("PreWorker"),
-    JetWorker("JetWorker"),
-    #Worker("IvfMerged", "inclusiveMergedVertices"),
+    # Worker("IvfMerged", "inclusiveMergedVertices"),
     Worker("IvfMergedFilt", "inclusiveMergedVerticesFiltered"),
-    #Worker("IvfMergedFiltLt0p2", 'inclusiveMergedVerticesFiltered', vtx_dr_lt_0p2),
-    #Worker("IvfMergedFiltGt1p0", 'inclusiveMergedVerticesFiltered', vtx_no_dr_lt_1p0),
+    # Worker("IvfMergedFiltLt0p2", 'inclusiveMergedVerticesFiltered', vtx_dr_lt_0p2),
+    # Worker("IvfMergedFiltGt1p0", 'inclusiveMergedVerticesFiltered', vtx_no_dr_lt_1p0),
     Worker("IvfMergedFiltCuts", "inclusiveMergedVerticesFiltered", vtx_cuts),
     Worker("IvfB2cMerged", "bToCharmDecayVertexMerged"),
     Worker("IvfB2cMergedCuts", "bToCharmDecayVertexMerged", vtx_cuts),
