@@ -7,9 +7,11 @@ import ROOT
 import varial.analysis
 import varial.dbio
 import varial.tools
+import varial.util
 
 
 class TemplateFitPlots(varial.tools.Tool):
+    """Copy template fit plots into one directory."""
     def __init__(self, name=None, with_cuts=False):
         super(TemplateFitPlots, self).__init__(name)
         self.with_cuts = with_cuts
@@ -26,6 +28,7 @@ class TemplateFitPlots(varial.tools.Tool):
 
 
 class FitResultCollector(varial.tools.Tool):
+    """Collect fit results (numbers only)."""
     io = varial.dbio
 
     def run(self):
@@ -43,6 +46,20 @@ class FitResultCollector(varial.tools.Tool):
         self.result = sorted((res for _, res in fitters), key=lambda w: w.name)
 
 
+######################################################### ScaleFactorsHisto ###
+class IvfEfficiencyLine(varial.util.Decorator):
+    def do_final_cosmetics(self):
+        self.decoratee.do_final_cosmetics()
+        y_val = .92**2
+        line = ROOT.TLine()
+        line.SetLineWidth(2)
+        line.SetLineColor(ROOT.kSpring - 4)
+        line.DrawLine(0., y_val, 1., y_val)
+        self.first_drawn.SetMinimum(0.)
+        self.first_drawn.SetMaximum(1.2)
+
+
+
 class ScaleFactorsHisto(varial.tools.FSPlotter):
     pat = p.Suppress('FitChainSumfrom') \
           + p.Word(p.nums).setParseAction(lambda i: float(i[0])) \
@@ -52,7 +69,7 @@ class ScaleFactorsHisto(varial.tools.FSPlotter):
     def __init__(self, name=None, with_cuts=False):
         super(ScaleFactorsHisto, self).__init__(name)
         self.with_cuts = with_cuts
-        self.canvas_decorators = []
+        self.canvas_decorators = [IvfEfficiencyLine]
 
     def load_content(self):
         self.stream_content = itertools.ifilter(

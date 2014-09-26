@@ -637,7 +637,7 @@ class TemplateFitTool(varial.tools.FSPlotter):
             name, input_result_path=input_result_path)
         self.mc_tmplts = None
         self.fitted = None
-        self.fitbox_bounds = 0.3, 0.6, 0.87
+        self.fitbox_bounds = 0.6, 0.9, 0.6
         self.result = varial.wrappers.Wrapper()
         self.n_templates = 0
         self.fitter = fitter
@@ -878,7 +878,7 @@ def _mkchn2d(slice, coll, re_bins):
             ),
             varial.tools.FSPlotter(
                 "VertexMassData2D",
-                input_result_path="../HistoSlicer",
+                input_result_path="../FSHistoLoader",
                 filter_keyfunc=lambda w: w.is_data,
                 hook_loaded_histos=lambda wrp: (
                     get_slice_from_th3d(w, slice[0], slice[1])

@@ -80,9 +80,9 @@ class TexMassTemplatePlot(varial.tools.Tool):
 class Tex2DMassPlot(varial.tools.Tool):
     def run(self):
         path = varial.analysis.lookup_path(
-            '../FitChainSum/')
-        for plot in ('FitChainSumfrom00to10_IvfB2cMerged/VertexMassData2D/VertexMass2DVsDrfrom00to10',
-                     'FitChainSumfrom00to10_IvfB2cMergedCuts/VertexMassData2D/VertexMass2DVsDrfrom00to10'):
+            '../FitChainSum')
+        for plot in ('FitChainSumfrom00to10_IvfB2cMerged/VertexMassData2D/IvfB2cMerged_VertexMass2DVsDrfrom00to10',
+                     'FitChainSumfrom00to10_IvfB2cMergedCuts/VertexMassData2D/IvfB2cMergedCuts_VertexMass2DVsDrfrom00to10'):
             p = join(path, plot)
             os.system('convert %s.eps %s.pdf' % (p, p))
             os.system('cp %s.pdf %s' % (p, self.cwd))
