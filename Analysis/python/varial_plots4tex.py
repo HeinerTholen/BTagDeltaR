@@ -38,7 +38,7 @@ class ControlPlotConverter(varial.tools.Tool):
             '../../' + self.name + '/ControlPlots')
         for plot in control_plot_names:
             p = join(path, self.name + '_' + plot)
-            os.system('convert %s.eps %s.pdf' % (p, p))
+            os.system('ps2pdf -dEPSCrop %s.eps %s.pdf' % (p, p))
             os.system('cp %s.pdf %s' % (p, self.cwd))
 
 
@@ -73,7 +73,7 @@ class TexMassTemplatePlot(varial.tools.Tool):
         for plot in ('IvfMergedFilt_VertexBeeMassTemplate',
                      'IvfMergedFilt_VertexDeeMassTemplate'):
             p = join(path, plot)
-            os.system('convert %s.eps %s.pdf' % (p, p))
+            os.system('ps2pdf -dEPSCrop %s.eps %s.pdf' % (p, p))
             os.system('cp %s.pdf %s' % (p, self.cwd))
 
 
@@ -84,7 +84,7 @@ class Tex2DMassPlot(varial.tools.Tool):
         for plot in ('FitChainSumfrom00to10_IvfB2cMerged/VertexMassData2D/IvfB2cMerged_VertexMass2DVsDrfrom00to10',
                      'FitChainSumfrom00to10_IvfB2cMergedCuts/VertexMassData2D/IvfB2cMergedCuts_VertexMass2DVsDrfrom00to10'):
             p = join(path, plot)
-            os.system('convert %s.eps %s.pdf' % (p, p))
+            os.system('ps2pdf -dEPSCrop %s.eps %s.pdf' % (p, p))
             os.system('cp %s.pdf %s' % (p, self.cwd))
 
 
@@ -96,7 +96,7 @@ class TexTemplateFits(varial.tools.Tool):
                      'VertexMass2DVsDrfrom10to16',
                      'VertexMass2DVsDrfrom16to20'):
             p = join(path, plot)
-            os.system('convert %s.eps %s.pdf' % (p, p))
+            os.system('ps2pdf -dEPSCrop %s.eps %s.pdf' % (p, p))
             os.system('cp %s.pdf %s' % (p, self.cwd))
 
 
@@ -108,7 +108,7 @@ class TexTemplateFitsCuts(varial.tools.Tool):
                      'VertexMass2DVsDrfrom10to16',
                      'VertexMass2DVsDrfrom16to20'):
             p = join(path, plot)
-            os.system('convert %s.eps %s.pdf' % (p, p))
+            os.system('ps2pdf -dEPSCrop %s.eps %s.pdf' % (p, p))
             os.system('cp %s.pdf %s' % (p, self.cwd))
 
 
@@ -121,5 +121,5 @@ class TexScaleFactors(varial.tools.Tool):
             'ScaleFactorsHistoCuts/ScaleFactorsHistoCuts_ScaleFactors'
         ):
             p = join(path, plot)
-            os.system('convert %s.eps %s.pdf' % (p, p))
+            os.system('ps2pdf -dEPSCrop %s.eps %s.pdf' % (p, p))
             os.system('cp %s.pdf %s' % (p, self.cwd))
