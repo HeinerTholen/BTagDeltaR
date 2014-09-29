@@ -229,7 +229,7 @@ class Worker(fwliteworker.FwliteWorker):
         # 2D Template Fit
         fs.VertexMass2DVsDr = ROOT.TH3D(
             'VertexMass2DVsDr',
-            ';Vertex #Delta R; 1st Vertex Mass / GeV; 2nd Vertex Mass / GeV',
+            ';Vertex #Delta R; 2nd Vertex Mass / GeV; 1st Vertex Mass / GeV',
             100, 0., 5.,
             100, 0., 10.,
             100, 0., 10.
