@@ -21,7 +21,6 @@ fwlite_exe = os.path.join(
 samples = ttdilep_samples.smp_emu_mc + ttdilep_samples.smp_emu_data
 active_samples = list(s.name for s in samples)
 active_samples.remove('TTbar')
-
 tc = varial.tools.ToolChain(
     "ttdilep_analysis",
     [
