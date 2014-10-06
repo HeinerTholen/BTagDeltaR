@@ -30,13 +30,9 @@ tc = varial.tools.ToolChain(
     #     varial.tools.CopyTool(os.path.join(os.environ['HOME'], 'www/btagdr/ana/'), name="ZipFileCopyTool",),
     # ] + varial_plotters.chains + [
         varial_fitter.fitter_plots,
-    #     varial_plots4tex.TexCrtlPlts(),
-    #     varial_plots4tex.TexMassTemplatePlot(),
         varial_fitter.fitter_chain_sum,
-        varial_plots4tex.Tex2DMassPlot(),
-        varial_plots4tex.TexTemplateFits(),
-        varial_plots4tex.TexTemplateFitsCuts(),
-        varial_plots4tex.TexScaleFactors(),
+    # ] + varial_plots4tex.tex_crtl_plt + [
+    ] + varial_plots4tex.tex_template_fit + [
         varial.tools.SimpleWebCreator(),
         varial.tools.CopyTool(
             os.path.join(os.environ['HOME'], 'www/btagdr/ana/')),

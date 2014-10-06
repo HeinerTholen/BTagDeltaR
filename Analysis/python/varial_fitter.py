@@ -192,11 +192,7 @@ class ThetaFitter(Fitter):
                 'bg_' + tmplt_name,
                 'gauss', 1.0, theta_auto.inf, [0.0, theta_auto.inf]
             )
-        self.ndf = sum(
-            1
-            for i in xrange(fitted.histo.GetNbinsX())
-            if fitted.histo.GetBinContent(i + 1) > .05
-        ) - len(self.template_names)
+        self.ndf = fitted.histo.GetNbinsX() - len(self.template_names)
 
     def do_the_fit(self):
         options = theta_auto.Options()

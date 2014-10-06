@@ -27,6 +27,18 @@ class TemplateFitPlots(varial.tools.Tool):
                 ))
 
 
+class TemplatePlots(TemplateFitPlots):
+    def run(self):
+        fit_chains = varial.analysis.lookup_children_names('../..')
+        for name in fit_chains:
+            if ('Cuts' in name) == self.with_cuts:
+                os.system('cp %sIvfB2cMergedCuts_VertexMass* %s' % (
+                          varial.analysis.lookup_path(
+                              '../../%s/TemplatesAndFittedHisto' % name),
+                          self.cwd
+                ))
+
+
 class FitResultCollector(varial.tools.Tool):
     """Collect fit results (numbers only)."""
     io = varial.dbio
@@ -108,6 +120,8 @@ summary_chain = varial.tools.ToolChain(
     "Summary", [
         TemplateFitPlots(),
         TemplateFitPlots('TemplateFitPlotsCuts', True),
+        TemplatePlots(),
+        TemplatePlots('TemplatePlotsCuts', True),
         FitResultCollector(),
         ScaleFactorsHisto(),
         ScaleFactorsHisto('ScaleFactorsHistoCuts', True),

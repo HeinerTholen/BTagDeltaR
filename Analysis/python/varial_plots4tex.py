@@ -65,7 +65,6 @@ class TexCrtlPlts(varial.tools.ToolChain):
                     f.writelines(include_strs)
 
 
-######################################################## template fits etc. ###
 class TexMassTemplatePlot(varial.tools.Tool):
     def run(self):
         path = varial.analysis.lookup_path(
@@ -77,6 +76,13 @@ class TexMassTemplatePlot(varial.tools.Tool):
             os.system('cp %s.pdf %s' % (p, self.cwd))
 
 
+tex_crtl_plt = [
+    TexCrtlPlts(),
+    TexMassTemplatePlot(),
+]
+
+
+######################################################## template fits etc. ###
 class Tex2DMassPlot(varial.tools.Tool):
     def run(self):
         path = varial.analysis.lookup_path(
@@ -112,6 +118,30 @@ class TexTemplateFitsCuts(varial.tools.Tool):
             os.system('cp %s.pdf %s' % (p, self.cwd))
 
 
+class TexTemplates(varial.tools.Tool):
+    def run(self):
+        path = varial.analysis.lookup_path(
+            '../FitChainSum/Summary/TemplatePlots')
+        for plot in ('IvfB2cMerged_VertexMass2DVsDrfrom00to10',
+                     'IvfB2cMerged_VertexMass2DVsDrfrom10to16',
+                     'IvfB2cMerged_VertexMass2DVsDrfrom16to20'):
+            p = join(path, plot)
+            os.system('ps2pdf -dEPSCrop %s.eps %s.pdf' % (p, p))
+            os.system('cp %s.pdf %s' % (p, self.cwd))
+
+
+class TexTemplatesCuts(varial.tools.Tool):
+    def run(self):
+        path = varial.analysis.lookup_path(
+            '../FitChainSum/Summary/TemplatePlotsCuts')
+        for plot in ('IvfB2cMergedCuts_VertexMass2DVsDrfrom00to10',
+                     'IvfB2cMergedCuts_VertexMass2DVsDrfrom10to16',
+                     'IvfB2cMergedCuts_VertexMass2DVsDrfrom16to20'):
+            p = join(path, plot)
+            os.system('ps2pdf -dEPSCrop %s.eps %s.pdf' % (p, p))
+            os.system('cp %s.pdf %s' % (p, self.cwd))
+
+
 class TexScaleFactors(varial.tools.Tool):
     def run(self):
         path = varial.analysis.lookup_path(
@@ -123,3 +153,13 @@ class TexScaleFactors(varial.tools.Tool):
             p = join(path, plot)
             os.system('ps2pdf -dEPSCrop %s.eps %s.pdf' % (p, p))
             os.system('cp %s.pdf %s' % (p, self.cwd))
+
+
+tex_template_fit = [
+    Tex2DMassPlot(),
+    TexTemplateFits(),
+    TexTemplateFitsCuts(),
+    TexTemplates(),
+    TexTemplatesCuts(),
+    TexScaleFactors(),
+]
