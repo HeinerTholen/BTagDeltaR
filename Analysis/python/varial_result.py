@@ -30,13 +30,19 @@ class TemplateFitPlots(varial.tools.Tool):
 class TemplatePlots(TemplateFitPlots):
     def run(self):
         fit_chains = varial.analysis.lookup_children_names('../..')
+        if self.with_cuts:
+            cp_str = 'cp %sIvfB2cMergedCuts_VertexMass* %s'
+        else:
+            cp_str = 'cp %sIvfB2cMerged_VertexMass* %s'
         for name in fit_chains:
             if ('Cuts' in name) == self.with_cuts:
-                os.system('cp %sIvfB2cMergedCuts_VertexMass* %s' % (
+                sys_call = cp_str % (
                           varial.analysis.lookup_path(
                               '../../%s/TemplatesAndFittedHisto' % name),
                           self.cwd
-                ))
+                )
+                self.message("INFO " + sys_call)
+                os.system(sys_call)
 
 
 class FitResultCollector(varial.tools.Tool):

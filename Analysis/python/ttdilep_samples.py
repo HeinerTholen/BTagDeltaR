@@ -12,9 +12,9 @@ settings.colors = {
     'W + jets': ROOT.kOrange,
     'TTbar': ROOT.kRed,
     'TTbar (no match)': ROOT.kRed + 3,
-    'TTbar (1 match)': ROOT.kRed + 1,
+    'TTbar (1 B match)': ROOT.kRed + 1,
     'TTbar (B+D match)': ROOT.kPink - 2,
-    'TTbar (2 matches)': ROOT.kRed - 9,
+    'TTbar (2 B matches)': ROOT.kRed - 9,
 }
 settings.stacking_order = [
     'Di-boson',
@@ -23,9 +23,9 @@ settings.stacking_order = [
     'W + jets',
     'TTbar',
     'TTbar (no match)',
-    'TTbar (1 match)',
+    'TTbar (1 B match)',
     'TTbar (B+D match)',
-    'TTbar (2 matches)',
+    'TTbar (2 B matches)',
 ]
 
 
@@ -120,7 +120,7 @@ smp_emu_mc.append(TTDilepEMuSample(
     name='TTbarOneMatch',
     x_sec=245./9.,
     n_events=12116717,  # * 15051. / 522465.,
-    legend='TTbar (1 match)',
+    legend='TTbar (1 B match)',
 ))
 
 smp_emu_mc.append(TTDilepEMuSample(
@@ -134,7 +134,7 @@ smp_emu_mc.append(TTDilepEMuSample(
     name='TTbarTwoMatch',
     x_sec=245./9.,
     n_events=12116717,  # * 15051. / 522465.,
-    legend='TTbar (2 matches)',
+    legend='TTbar (2 B matches)',
 ))
 
 smp_emu_mc.append(TTDilepEMuSample(
