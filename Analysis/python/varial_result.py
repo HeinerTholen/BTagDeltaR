@@ -78,9 +78,10 @@ class ScaleFactorsHisto(varial.tools.FSPlotter):
           + p.Suppress('to') \
           + p.Word(p.nums).setParseAction(lambda i: float(i[0]))
 
-    def __init__(self, name=None, with_cuts=False):
+    def __init__(self, name, legend, with_cuts=False):
         super(ScaleFactorsHisto, self).__init__(name)
         self.with_cuts = with_cuts
+        self.legend = legend
         self.canvas_decorators = [IvfEfficiencyLine]
 
     def load_content(self):
@@ -108,7 +109,7 @@ class ScaleFactorsHisto(varial.tools.FSPlotter):
         )
         for i in xrange(n_bins):
             val, err, leg = bins_cont[i][1]
-            index = leg.index('B + B Vertex')
+            index = leg.index(self.legend)
             res.histo.SetBinContent(i+1, val[index])
             res.histo.SetBinError(i+1, err[index])
 
@@ -123,7 +124,11 @@ summary_chain = varial.tools.ToolChain(
         TemplatePlots(),
         TemplatePlots('TemplatePlotsCuts', True),
         FitResultCollector(),
-        ScaleFactorsHisto(),
-        ScaleFactorsHisto('ScaleFactorsHistoCuts', True),
+        ScaleFactorsHisto('ScaleFactorsHisto', 'B + B Vertex'),
+        ScaleFactorsHisto('ScaleFactorsHistoCuts', 'B + B Vertex', True),
+        ScaleFactorsHisto('ScaleFactorsHistoBD', 'B + D Vertex'),
+        ScaleFactorsHisto('ScaleFactorsHistoBDCuts', 'B + D Vertex', True),
+        ScaleFactorsHisto('ScaleFactorsHistoBF', 'B + Fake Vertex'),
+        ScaleFactorsHisto('ScaleFactorsHistoBFCuts', 'B + Fake Vertex', True),
     ]
 )
