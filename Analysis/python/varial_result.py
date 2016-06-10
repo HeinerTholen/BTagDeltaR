@@ -74,7 +74,7 @@ class IvfEfficiencyLine(varial.util.Decorator):
         line.SetLineColor(ROOT.kSpring - 4)
         line.DrawLine(0., y_val, 1., y_val)
         self.first_drawn.SetMinimum(0.)
-        self.first_drawn.SetMaximum(1.2)
+        self.first_drawn.SetMaximum(10.)
 
 
 
